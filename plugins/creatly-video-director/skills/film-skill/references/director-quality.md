@@ -132,7 +132,7 @@
 
 只登记反复出现、参与关键动作、承担身份揭示，或具有文字、缺口、方向和左右结构的道具。为每件道具固定尺寸、材质、磨损、握持位置、当前持有人和状态变化，并在 Shot 与 Frame 中逐字复用关键锚点。
 
-需要图片级一致性的叙事道具按 [主体创建](subjects.md) 的商品主体规则处理：使用 `createNode` 创建 `type=element`、`subType=product` 的商品主体，再内嵌基准图和状态图 Frame。不存在独立 `createProductSubject` Tool 不代表能力缺失。只有实时 `createNode` schema 尚未开放 `subType` 时，才报告当前部署版本的字段缺口；仍不得使用场景主体代替。
+需要图片级一致性的叙事道具按 [主体创建](subjects.md) 的正式道具流程处理：当前 createSubject 使用 kind="scene" 的非角色分支和 subjectType="prop"，不等于把道具画成场景。分别验证主体库记录、画布应用节点与已归档素材；普通 element 容器及其子图不能代替正式主体证据。能力以实时 Schema 为准。
 
 ## 跨阶段一致性检查
 

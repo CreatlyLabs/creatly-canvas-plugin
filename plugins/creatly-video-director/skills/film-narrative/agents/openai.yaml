@@ -1,9 +1,0 @@
-interface:
-  display_name: 叙事短片创作
-  short_description: 从故事与已有素材推进短片，灵活选择制作路线并落到元极真实画布
-  default_prompt: 使用 $film-narrative 完成这部作品的创作与画布 JSON，按我指定的范围落到元极项目。
-dependencies:
-  tools:
-    - type: mcp
-      value: yuanji
-      description: dev 网站的远程标准 MCP 服务（OAuth）

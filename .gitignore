@@ -2,3 +2,6 @@
 node_modules/
 .env
 *.token
+dist/
+__pycache__/
+*.pyc

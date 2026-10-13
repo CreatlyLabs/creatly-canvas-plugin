@@ -1,6 +1,6 @@
 {
   "name": "creatly-video-director",
-  "version": "0.2.4",
+  "version": "0.2.12",
   "description": "Create and revise short films on the Creatly canvas.",
   "author": {
     "name": "Creatly",
@@ -15,9 +15,7 @@
   ],
   "category": "design",
   "skills": [
-    "./skills/film-narrative",
-    "./skills/film-cinematic-realism",
-    "./skills/film-creation"
+    "./skills/film-skill"
   ],
   "mcpServers": {
     "yuanji": {

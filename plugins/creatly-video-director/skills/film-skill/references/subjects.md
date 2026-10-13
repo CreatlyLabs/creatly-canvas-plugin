@@ -6,15 +6,9 @@
 
 ## 先读取已有主体
 
-调用 `getCanvasContext(includeSubjects=true)` 并读取 `subjects`，按以下三组检查：
+按实时 Schema 用 subjectId/subjectQuery 定位后读取 `getCanvasContext(detail="full")` 的 subjects；首次建档需扫描现有主体时才取目录范围，复用同一版本的回执。用 getNodes 精读已有应用节点，具体字段见 [读取策略](mcp-execution.md#按需读取节点)。只以当前接口暴露的参数为准。
 
-```text
-character
-environment
-product
-```
-
-以精确 `label` 和 `subType` 判断是否复用。名称大小写、空格和标点都按服务端返回处理。
+区分主体库 elementId、画布 subjectNodeId、主体素材 assetId 与媒体 fileRef.id；用名称、分类、素材内容和关联 ID 一起判断复用。普通 element 容器、同名节点或空的 subjects.subject 都不能证明正式主体已存在。名称大小写、空格和标点按服务端返回处理。
 
 不要创建同名重复主体。若同名主体有多个且无法判断当前有效项，停止并请用户选择。
 
@@ -126,9 +120,11 @@ no text, no watermark, no scene, no action
 
 ## 创建角色结构
 
-按实时 schema 调用 `createSubject(kind="character")`。核心结构为：
+按实时 schema 调用 `createSubject(kind="character")`。下面是创建基础形象与三视图计划的参数模板，替换占位值；音色字段仅在需要时加入，不把括号说明当作 ID：
 
 ```yaml
+projectId: 项目接口返回的原始字符串
+idempotencyKey: 本次创建操作的稳定唯一键
 kind: character
 label: 角色精确名称
 voiceProfileId: 服务端返回的真实音色 ID（schema 要求或本次需要时）
@@ -140,7 +136,14 @@ threeView:
 
 生成与状态查询按 [MCP 执行协议](mcp-execution.md) 及实时工具定义执行；每次新付费范围独立确认，回读真实媒体文件。
 
-调用将正式主体写入资产库并建立画布应用节点与图片计划，不自动生图。分别保存 elementId（主体资产）、subjectNodeId（画布应用节点）以及 generationNodeIds（待生成图片）；生成后服务端自动归档主体素材，再用 getCanvasContext(detail="full", subjectId=elementId) 回读。缺少任一必需结构时，该角色未准备完成。
+调用将正式主体写入资产库并建立画布应用节点与可选图片计划，不自动生图。分别保存 elementId（主体库记录）、subjectNodeId（画布节点）、generationNodeIds 与 assetTaskPlans；未请求生成计划时 generationNodeIds 可以为空，不以此判断建档失败。回读确认 subjectNodeId 关联返回的 elementId，正式主体属于当前项目。
+
+- 要新出三视图时，必须提供 frontView 计划或真实可复用的基础形象。仅传 threeView.content 不足；frontView 和 threeView 只接受当前 Schema 的字段，不把模型、fileRef 或 generationParams 塞进其中。
+- 复用已有演员时，先读取可访问的演员及素材。当前 actorId 是来源演员 ID，referenceAssetIds/threeViewAssetIds 是该来源的素材 ID；不能拿普通上传文件 ID、画布节点 ID 或别的角色素材 ID 代替。三视图复用只选已预览确认的三视图素材。
+- 用户给了本地照片或已有成图：按上传流程取得真实 fileRef，通过 Schema 支持的节点 fileRef 挂载或 referenceResources 引用。已有图片直接挂载不调用 generateNodes；照片用来新生成角色图时按费用授权执行。文字“沿用已有图”不会上传或绑定文件。
+- 图片节点挂载成功后，还要精读正式主体 assets，确认图片已成为可引用素材。普通子 Frame 的 parentNode 归属只说明排版，不能代替主体素材归档证据；能力不足时报告待绑定，不假称完成，不为修复挂载重复生图。
+
+生成后服务端自动归档主体素材，再用完整主体读取核验。建档、参考图就绪、视觉通过分别记录。
 
 ## 识别场景主体
 
@@ -197,6 +200,8 @@ no people, no characters, no figures, empty scene, no text, no watermark
 按实时 schema 调用 `createSubject(kind="scene")`，传入：
 
 ```yaml
+projectId: 项目接口返回的原始字符串
+idempotencyKey: 本次创建操作的稳定唯一键
 kind: scene
 label: 场景精确名称
 sceneDescription: 面向编辑者的完整说明
@@ -209,23 +214,23 @@ frameLabel: 场景图
 
 调用只创建场景主体、描述节点和 Frame 结构，不自动生图。收集真实场景主体 ID 和场景 Frame ID，并回读主体列表与画布。缺少主体、描述或 Frame 中任一项时，不得宣称场景主体已完整创建。
 
-需要多张场景参考图时，在取得主体 ID 后调用 `createNode`。每张额外 Frame 都把 `parentNode` 设为同一个场景主体 ID，例如：
+需要多张场景参考图时，在取得 subjectNodeId 后按 createNode 的完整 Schema（包括 projectId、idempotencyKey）调用。每张额外 Frame 都把 parentNode 设为同一个场景的 subjectNodeId，例如：
 
 ```yaml
 nodes:
   - clientRef: scene-reverse
     type: frame
     label: 反向视图
-    parentNode: 场景主体 ID
+    parentNode: 场景的 subjectNodeId
     content: 最终无人环境图提示词
   - clientRef: scene-performance-area
     type: frame
     label: 关键表演区
-    parentNode: 场景主体 ID
+    parentNode: 场景的 subjectNodeId
     content: 最终无人环境图提示词
 ```
 
-若在普通 `createNode` 批次中同时新建 `element` 和子 Frame，则改用相同的 `parentNodeRef` 指向该 `element` 的 `clientRef`。`parentNode` 和 `parentNodeRef` 表示容器内嵌关系，不要替换成 `parentIds` 或 `parentRefs`。写入后回读 FULL 快照，确认所有 Frame 的 `parentNode` 都是预期主体。
+正式主体先由 createSubject 建档，额外 Frame 再指向返回的 subjectNodeId。parentNode/parentNodeRef 只表示容器内嵌关系，不替代主体库登记或素材归档，也不要替换成 parentIds/parentRefs。写入后同时核对排版归属与正式主体 assets，只有真实归档的图片才作为主体提及的素材依据。
 
 ## 商品主体边界
 
@@ -233,42 +238,11 @@ nodes:
 
 为入选道具固定：戏剧功能、尺寸级别、材质、3 到 5 个可见锚点、文字方向、握持位置、当前持有人、适用场景和状态变化。参考图使用中性背景并避免人物或手部污染；需要不同状态时，把状态图作为同一商品主体内的额外参考 Frame，并明确母状态与变化项。
 
-商品主体由普通 `createNode` 创建，不要求存在名为 `createProductSubject` 的独立 Tool。先确认实时 `createNode.nodes[]` schema 暴露 `subType`，且同时允许 `product`、`front_view` 和 `tri_view`；随后创建 `type=element`、`subType=product` 的容器，把 `type=frame`、`subType=front_view` 的基准图内嵌到该容器。需要确认多个角度时，再创建依赖正视图的 `type=frame`、`subType=tri_view`：
+正式道具通过 `createSubject(kind="scene", subjectType="prop")` 建档，另带 projectId、idempotencyKey、label 和 sceneDescription；要准备参考图计划时加 imagePrompt。这里 scene 是 API 的非角色分支，不表示把道具当作环境；图像内容仍是独立道具参考图。自定义主体（如色卡）使用该分支的 subjectType="custom" 与 subjects.subjectTypes 返回的真实 subjectTypeId。以实时 Schema 为准，不传 kind="prop" 或 kind="custom"。
 
-```json
-{
-  "nodes": [
-    {
-      "clientRef": "product-forbidden-sword",
-      "type": "element",
-      "subType": "product",
-      "label": "禁剑",
-      "content": "禁剑商品主体：尺寸、材质、缺口、文字方向和握持位置的固定描述"
-    },
-    {
-      "clientRef": "product-forbidden-sword-primary",
-      "type": "frame",
-      "subType": "front_view",
-      "label": "禁剑基准图",
-      "parentNodeRef": "product-forbidden-sword",
-      "content": "中性背景的禁剑资产基准图提示词，无人物和手部"
-    },
-    {
-      "clientRef": "product-forbidden-sword-tri-view",
-      "type": "frame",
-      "subType": "tri_view",
-      "label": "禁剑三视图",
-      "parentNodeRef": "product-forbidden-sword",
-      "parentRefs": ["product-forbidden-sword-primary"],
-      "content": "基于禁剑基准图生成正面、侧面和背面三视图，保持尺寸、材质、缺口、符文方向和握柄结构一致，中性背景，无人物和手部"
-    }
-  ]
-}
-```
+先复用已有正式道具，否则创建后分别保存 elementId 和 subjectNodeId。额外基准、三视图或状态 Frame 的 parentNode 指向 subjectNodeId；跨图参考使用接口真实支持的资源字段。回读节点归属、正式主体 assets 和参考图，不能只凭 subjects.product 分组或 subType 判断归档成功。
 
-同一商品主体的破损、开启或污染状态使用额外子 Frame；已有商品主体使用真实 `parentNode`，同批新建使用 `parentNodeRef`。三视图使用 `parentIds` 或 `parentRefs` 依赖正视图，不能只靠提示词描述继承关系。写入后读取 FULL 快照，确认容器为 `type=element`、`subType=product`，基准 Frame 为 `type=frame`、`subType=front_view`，三视图为 `type=frame`、`subType=tri_view`，且所有参考 Frame 的 `parentNode` 指向该容器；再用 `getCanvasContext` 返回的 `subjects.product` 复核主体登记。
-
-若实时 `createNode` schema 没有 `subType`，应报告「当前部署的 MCP 版本尚未开放商品主体子类型字段」，不能报告平台没有商品主体，也不能仅因缺少独立商品 Tool 而停止。需要三视图但 schema 未允许 `tri_view` 时，应明确报告「当前部署的 MCP 版本尚未开放商品三视图子类型」，不得退回创建无类型 Frame。此时仍不得调用 `createSubject(kind="scene")` 伪装商品主体，或把产品塞进无人场景参考图；依赖图片级商品一致性的生成等待 MCP 版本升级。
+旧版 `createNode(type="element", subType="product")` 可能仍能建画布容器，但不能作为正式主体创建成功的证据。已有旧节点先检查关联和素材，再决定是否需要建档；保留旧图和版本，不自动删除或重生。当前部署缺少正式道具分类或素材绑定能力时，报告具体缺口，不随意猜新 Tool、枚举或 ID。
 
 ## 生成主体参考图
 

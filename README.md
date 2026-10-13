@@ -26,7 +26,22 @@ codex plugin add creatly-video-director@creatly
 /plugin install creatly-video-director@creatly
 ```
 
-安装后开启新任务，使用 `/mcp` 或宿主提示完成 yuanji 的 OAuth 授权，在 **yuanji.studio** 登录。单纯打开网站不等于完成插件授权。
+首次连接时，按宿主提示完成 yuanji 的 OAuth 授权，在 **yuanji.studio** 登录并选择空间。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期](plugins/creatly-video-director/docs/oauth-connection.md)。
+
+## 一次授权与自动续期
+
+- 元极采用标准 OAuth：访问令牌默认 30 分钟，刷新令牌默认 30 天；成功刷新会返回新的访问令牌和刷新令牌，由宿主安全保存。30 天指刷新令牌有效期，不是让一个访问令牌使用 30 天；实际有效期以服务端签发结果为准。
+- 同一环境更新时保持插件名 `creatly-video-director`、MCP 名 `yuanji` 和 MCP 地址稳定。通过宿主的更新流程升级，不为日常更新卸载重装、登出或重复添加手动 MCP。
+- 正常续期不需要浏览器、保持画布打开或重新输入密码。撤销授权、刷新令牌到期、凭据丢失或切换环境后，才按宿主提示重新连接。网站登录与插件授权是两套凭据。
+- 403 是资源权限问题；429、5xx 和连接超时是请求问题。不要因此清除授权或反复登录。`invalid_client` 表示客户端注册/认证异常，`invalid_grant` 表示刷新凭据异常，应先诊断具体原因。
+
+持续授权依赖后端部署：必须发布保留关联授权的 OAuth 客户端清理修复。已被旧服务误删的客户端无法只靠更新插件恢复，修复发布后需重新授权一次；之后使用正常自动续期流程。
+
+## Codex 已连接账户面板
+
+本环境尚未填写平台注册的元极应用 ID，因此当前安装包仍通过 MCP 连接管理授权，尚不显示平台账户面板。
+
+维护者在平台创建对应环境的自定义 MCP 插件后，将实际应用 ID 写入 `config/openai-apps.json`；详细步骤见 [账号连接与续期](plugins/creatly-video-director/docs/oauth-connection.md)。平台注册、后端部署和真实账户连接均完成后才算面板验收通过。三个环境使用各自的应用 ID，升级时保留已有映射。
 
 ## WorkBuddy
 
@@ -58,15 +73,39 @@ claude mcp add --transport http creatly https://yuanji.studio/api/agent/mcp/v2
 
 ## 创作与协议
 
-三个技能共用远程连接：`film-narrative`（叙事短片）、`film-cinematic-realism`（写实电影）、`film-creation`（已有任务）。用户明确指定的模型与画质参数优先。
+技能统一为 `film-skill`：一个入口覆盖剧本、选角、分镜、运镜、视频提示词、画布执行和剪辑，按叙事短片或写实电影路线推进，细节按需读取 `references/`。视频默认 Seedance 2.5、480p、开启音频；用户明确指定的模型、画质和音频参数优先。
 
-配置使用标准 HTTP MCP，由宿主管理 OAuth 授权与令牌刷新，不打包凭据。通过实时 `tools/list` 获取工具及 Schema，具体见 [执行协议](plugins/creatly-video-director/skills/film-creation/references/mcp-execution.md)。工具能力取决于对应环境的后端部署；插件升级不等于后端已发布，也不代表已完成付费生成验收。
+配置使用标准 HTTP MCP，由宿主管理 OAuth 授权与令牌刷新，不打包凭据。通过实时 `tools/list` 获取工具及 Schema，具体见 [执行协议](plugins/creatly-video-director/skills/film-skill/references/mcp-execution.md)。工具能力取决于对应环境的后端部署；插件升级不等于后端已发布，也不代表已完成付费生成验收。
 
 仓库中的旧 stdio 适配器仅为历史开发工具，本版本插件不加载它。
 
 ## 维护环境版本
 
-在仓库根目录执行 `python3 scripts/configure-environment.py production`，同步三个宿主的配置、版本、技能连接说明和安装文档；开发、测试、生产必须分别发布到 `dev`、`test`、`main`。
+同一个代码库共用 `skills/film-skill`、执行协议和后端 MCP，客户端使用各自的 JSON 配置。`dev`、`test`、`main` 分支分别对应开发、测试、生产环境；每个分支都包含三种客户端的适配。
+
+拉取对应分支后，默认同步全部客户端配置：
+
+```bash
+python3 scripts/configure-environment.py main
+```
+
+需要单独安装包时，用 `--client` 导出。输出默认位于 `dist/main/<client>/`，可以用 `--output` 指定新目录；导出不会修改源仓库或已有授权。
+
+```bash
+python3 scripts/configure-environment.py main --client codex
+python3 scripts/configure-environment.py main --client claude
+python3 scripts/configure-environment.py main --client workbuddy
+```
+
+| 客户端参数 | 插件配置 | MCP 配置 |
+| --- | --- | --- |
+| `codex` | `.codex-plugin/plugin.json` | `.mcp.json`，已注册应用时附带 `.app.json` |
+| `claude` | `.claude-plugin/plugin.json` | `.mcp.claude.json` |
+| `workbuddy` | `.codebuddy-plugin/plugin.json` | 内置 `mcpServers` |
+
+导出目录保留该客户端的 marketplace 和一份共享技能、文档与脚本。WorkBuddy 采用已有 CodeBuddy 适配配置，完整安装和 OAuth 仍需在实际客户端验收。`--client all --output <目录>` 可以导出通用安装包。相同输出可重复导出；内容变化时请选择新的或空的目录，避免覆盖已有文件。旧参数 `production` 继续作为 `main` 的别名。
+
+账号面板与凭据保存由各客户端管理；OpenAI 的应用 ID 仅用于 Codex 配置。每个客户端首次使用分别授权，后续按宿主能力自动续期。
 
 ## 生成确认
 
@@ -74,10 +113,10 @@ claude mcp add --transport http creatly https://yuanji.studio/api/agent/mcp/v2
 
 ## 0.2.0 精简工具目录
 
-新版后端默认提供 13 个工具（生成关闭时 12 个）：`listProjects`、`projectCreate`、`getCanvasContext`、`createNode`、`updateNode`、`deleteNodes`、`createSubject`、`upload`、`listGenerationModels`、`listSystemVoices`、`calculateCredits`、`generateNodes`、`getGenerationStatus`。
+当前工具包括 `listProjects`、`projectCreate`、`getCanvasContext`、`getCanvasOutline`、`getNodes`、`createNode`、`updateNode`、`deleteNodes`、`createSubject`、`upload`、`listGenerationModels`、`listSystemVoices`、`calculateCredits`、`generateNodes`、`getGenerationStatus`；能力以实时 `tools/list` 为准。
 
-`getCanvasContext` 默认 compact，需要生成配置等详细信息时传 `detail="full"`；主体列表合入 `subjects`。`createSubject` 用 `kind="character"|"scene"|"prop"|"custom"` 选择主体类型。
+`getCanvasContext` 新接口默认 brief，仅返回节点 ID、名称、类型、状态和关系；按 nextCursor 翻页（brief 100、compact 20、full 5 个/页）。定位后用 `getNodes` 按 ID 和 fields 精读。旧部署以实时 inputSchema 为准，尚无 brief 时使用 getCanvasOutline。主体列表按需读取 includeSubjects。`createSubject` 的 kind 为 character/scene；道具和自定义主体使用 scene 分支的 subjectType=prop/custom，自定义分类传真实 subjectTypeId。
 
 上传统一走 `upload`：`action="prepare"` 申请直传 → 本机上传原始字节 → `action="complete"` 登记。支持图片、视频、音频、文本（txt/md）；文本返回文件引用，需要在画布展示时再创建直接输入的文本节点。上传不自动发起生成。
 
-先部署对应后端，再升级插件并重新连接 MCP。旧后端不会因为安装插件自动获得新工具；实时 `tools/list` 才是能力依据。默认目录不再提供 Film DSL、浏览器交接、独立确认或 previewAssemble。
+先部署对应后端，再升级插件并刷新宿主加载的工具定义，同一环境复用已有 OAuth 连接。旧后端不会因为安装插件自动获得新工具；实时 `tools/list` 才是能力依据。默认目录不再提供 Film DSL、浏览器交接、独立确认或 previewAssemble。

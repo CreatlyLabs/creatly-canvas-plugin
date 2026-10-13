@@ -1,9 +1,0 @@
-interface:
-  display_name: 写实电影制作
-  short_description: 以资产状态、空间和表演连续性制作写实电影，并落到元极真实画布
-  default_prompt: 使用 $film-cinematic-realism 完成这部作品的创作与画布 JSON，按我指定的范围落到元极项目。
-dependencies:
-  tools:
-    - type: mcp
-      value: yuanji
-      description: dev 网站的远程标准 MCP 服务（OAuth）
