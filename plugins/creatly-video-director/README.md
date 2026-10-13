@@ -81,7 +81,31 @@ claude mcp add --transport http creatly-test https://test.yuanji.studio/api/agen
 
 ## 维护环境版本
 
-在仓库根目录执行 `python3 scripts/configure-environment.py test`，同步三个宿主的配置、版本、技能连接说明和安装文档；开发、测试、生产必须分别发布到 `dev`、`test`、`main`。
+同一个代码库共用 `skills/film-skill`、执行协议和后端 MCP，客户端使用各自的 JSON 配置。`dev`、`test`、`main` 分支分别对应开发、测试、生产环境；每个分支都包含三种客户端的适配。
+
+拉取对应分支后，默认同步全部客户端配置：
+
+```bash
+python3 scripts/configure-environment.py test
+```
+
+需要单独安装包时，用 `--client` 导出。输出默认位于 `dist/test/<client>/`，可以用 `--output` 指定新目录；导出不会修改源仓库或已有授权。
+
+```bash
+python3 scripts/configure-environment.py test --client codex
+python3 scripts/configure-environment.py test --client claude
+python3 scripts/configure-environment.py test --client workbuddy
+```
+
+| 客户端参数 | 插件配置 | MCP 配置 |
+| --- | --- | --- |
+| `codex` | `.codex-plugin/plugin.json` | `.mcp.json`，已注册应用时附带 `.app.json` |
+| `claude` | `.claude-plugin/plugin.json` | `.mcp.claude.json` |
+| `workbuddy` | `.codebuddy-plugin/plugin.json` | 内置 `mcpServers` |
+
+导出目录保留该客户端的 marketplace 和一份共享技能、文档与脚本。WorkBuddy 采用已有 CodeBuddy 适配配置，完整安装和 OAuth 仍需在实际客户端验收。`--client all --output <目录>` 可以导出通用安装包。相同输出可重复导出；内容变化时请选择新的或空的目录，避免覆盖已有文件。旧参数 `production` 继续作为 `main` 的别名。
+
+账号面板与凭据保存由各客户端管理；OpenAI 的应用 ID 仅用于 Codex 配置。每个客户端首次使用分别授权，后续按宿主能力自动续期。
 
 ## 图片、视频、音频上传
 

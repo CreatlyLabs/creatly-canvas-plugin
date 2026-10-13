@@ -2,6 +2,8 @@ import importlib.util
 import json
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -138,5 +140,117 @@ class EnvironmentPackagesTest(unittest.TestCase):
             self.assertEqual(set(server), {'type', 'url'})
             self.assertEqual(server['type'], 'http')
             self.assertEqual(server['url'], f'{site}/api/agent/mcp/v2')
+
+class ClientPackagesTest(unittest.TestCase):
+    def copy_source(self, destination):
+        for directory in ['plugins', '.agents', '.claude-plugin', '.codebuddy-plugin', 'config']:
+            shutil.copytree(ROOT / directory, destination / directory,
+                            ignore=shutil.ignore_patterns('node_modules', '__pycache__', '*.pyc'))
+        shutil.copy(ROOT / 'README.md', destination / 'README.md')
+        return destination
+
+    def snapshot(self, root):
+        return {p.relative_to(root): p.read_bytes() for p in root.rglob('*') if p.is_file()}
+
+    def test_environment_client_matrix_keeps_shared_skill_and_only_selected_json(self):
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            root = self.copy_source(parent / 'source')
+            original = self.snapshot(root)
+            for env in ['dev', 'test', 'main']:
+                for client in ['codex', 'claude', 'workbuddy', 'all']:
+                    with self.subTest(environment=env, client=client):
+                        output = parent / env / client
+                        module.export_package(root, env, client, output)
+                        plugin = output / 'plugins/creatly-video-director'
+                        canonical = module.normalize_environment(env)
+                        branch, domain, _, version = module.ENVIRONMENTS[canonical]
+                        expected = {'yuanji': {'type': 'http', 'url': f'https://{domain}/api/agent/mcp/v2'}}
+                        for host, (manifest_dir, marketplace_dir, mcp_file) in module.CLIENTS.items():
+                            selected = client in ('all', host)
+                            self.assertEqual((plugin / manifest_dir).exists(), selected)
+                            self.assertEqual((output / marketplace_dir).exists(), selected)
+                            if selected:
+                                manifest = json.loads((plugin / manifest_dir / 'plugin.json').read_text())
+                                self.assertEqual(manifest['name'], 'creatly-video-director')
+                                self.assertEqual(manifest['version'], version)
+                                self.assertEqual(manifest['homepage'], f'https://{domain}')
+                                if host == 'workbuddy':
+                                    self.assertEqual(manifest['mcpServers'], expected)
+                                else:
+                                    self.assertEqual(manifest['mcpServers'], f'./{mcp_file}')
+                            if mcp_file:
+                                self.assertEqual((plugin / mcp_file).exists(), selected)
+                                if selected:
+                                    self.assertEqual(json.loads((plugin / mcp_file).read_text()), {'mcpServers': expected})
+                        self.assertEqual((plugin / 'skills/film-skill/SKILL.md').read_bytes(),
+                                         (root / 'plugins/creatly-video-director/skills/film-skill/SKILL.md').read_bytes())
+                        self.assertIn(expected['yuanji']['url'],
+                                      (plugin / 'skills/film-skill/references/mcp-execution.md').read_text())
+                        self.assertIn(f'源分支：`{branch}`', (output / 'INSTALL.md').read_text())
+                        self.assertFalse((plugin / 'mcp').exists())
+                        self.assertFalse((output / 'config').exists())
+                        self.assertFalse(any(output.rglob('__pycache__')))
+                        # Repeated identical export is safe and makes no changes.
+                        exported = self.snapshot(output)
+                        module.export_package(root, env, client, output)
+                        self.assertEqual(self.snapshot(output), exported)
+            self.assertEqual(self.snapshot(root), original)
+
+    def test_openai_binding_is_only_exported_to_codex_in_its_environment(self):
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            root = self.copy_source(parent / 'source')
+            (root / 'config/openai-apps.json').write_text(json.dumps({'test': 'plugin_asdk_app_testfixture'}))
+            original = self.snapshot(root)
+            for client in ['codex', 'claude', 'workbuddy', 'all']:
+                output = parent / client
+                module.export_package(root, 'test', client, output)
+                app_file = output / 'plugins/creatly-video-director/.app.json'
+                self.assertEqual(app_file.exists(), client in ('codex', 'all'))
+                if app_file.exists():
+                    self.assertEqual(json.loads(app_file.read_text())['apps']['yuanji']['id'], 'asdk_app_testfixture')
+                for host in ['claude', 'codebuddy']:
+                    manifest = output / f'plugins/creatly-video-director/.{host}-plugin/plugin.json'
+                    if manifest.exists():
+                        self.assertNotIn('apps', json.loads(manifest.read_text()))
+            module.export_package(root, 'dev', 'codex', parent / 'dev-codex')
+            self.assertFalse((parent / 'dev-codex/plugins/creatly-video-director/.app.json').exists())
+            self.assertEqual(self.snapshot(root), original)
+
+    def test_export_refuses_source_paths_and_preserves_existing_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            root = self.copy_source(parent / 'source')
+            original = self.snapshot(root)
+            for output in [root, parent, root / 'plugins/custom', root / '.agents']:
+                with self.subTest(output=output), self.assertRaises(ValueError):
+                    module.export_package(root, 'test', 'claude', output)
+            output = parent / 'existing'
+            output.mkdir()
+            (output / 'notes.txt').write_text('user notes')
+            with self.assertRaisesRegex(ValueError, 'not empty'):
+                module.export_package(root, 'test', 'claude', output)
+            self.assertEqual(self.snapshot(output), {Path('notes.txt'): b'user notes'})
+            with self.assertRaises(ValueError):
+                module.export_package(root, 'test', 'claude', parent / 'invalid-app', 'asdk_app_fixture')
+            self.assertFalse((parent / 'invalid-app').exists())
+            with self.assertRaises(ValueError):
+                module.export_package(root, 'unknown', 'codex', parent / 'invalid-env')
+            with self.assertRaises(ValueError):
+                module.export_package(root, 'test', 'unknown', parent / 'invalid-client')
+            self.assertEqual(self.snapshot(root), original)
+
+    def test_cli_accepts_main_branch_and_client_output(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / 'workbuddy'
+            result = subprocess.run([sys.executable, str(ROOT / 'scripts/configure-environment.py'),
+                                     'main', '--client', 'workbuddy', '--output', str(output)],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), str(output.resolve()))
+            manifest = json.loads((output / 'plugins/creatly-video-director/.codebuddy-plugin/plugin.json').read_text())
+            self.assertEqual(manifest['mcpServers']['yuanji']['url'], 'https://yuanji.studio/api/agent/mcp/v2')
+            self.assertFalse((output / 'plugins/creatly-video-director/.codex-plugin').exists())
 
 if __name__ == '__main__': unittest.main()

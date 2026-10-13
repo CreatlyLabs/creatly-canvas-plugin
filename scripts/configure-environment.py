@@ -1,18 +1,33 @@
 #!/usr/bin/env python3
-"""Render the released branch's HTTP MCP configuration and install documentation."""
+"""Configure an environment or export a client-specific remote MCP plugin package."""
 import argparse
 import json
 import re
+import shutil
+import tempfile
 from pathlib import Path
 
 ENVIRONMENTS = {
-    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.4-dev'),
-    'test': ('test', 'test.yuanji.studio', '测试', '0.2.11-test'),
-    'production': ('main', 'yuanji.studio', '生产', '0.2.4'),
+    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.12-dev'),
+    'test': ('test', 'test.yuanji.studio', '测试', '0.2.12-test'),
+    'production': ('main', 'yuanji.studio', '生产', '0.2.12'),
 }
 
 # Keep the host's OAuth credential identity stable when releasing a new plugin version.
 MCP_SERVER_NAME = 'yuanji'
+
+# Each host discovers its own manifest; the workflow and remote backend are shared.
+CLIENTS = {
+    'codex': ('.codex-plugin', '.agents', '.mcp.json'),
+    'claude': ('.claude-plugin', '.claude-plugin', '.mcp.claude.json'),
+    'workbuddy': ('.codebuddy-plugin', '.codebuddy-plugin', None),
+}
+
+def normalize_environment(environment):
+    environment = 'production' if environment == 'main' else environment
+    if environment not in ENVIRONMENTS:
+        raise ValueError('Environment must be dev, test, or main (production is an alias).')
+    return environment
 
 def normalize_openai_app_id(value):
     if not isinstance(value, str):
@@ -24,6 +39,7 @@ def normalize_openai_app_id(value):
     return value
 
 def configure(root, environment, openai_app_id=None):
+    environment = normalize_environment(environment)
     branch, domain, label, version = ENVIRONMENTS[environment]
     plugin = root / 'plugins/creatly-video-director'
     site = f'https://{domain}'
@@ -169,14 +185,113 @@ claude mcp add --transport http {server} {endpoint}
 
 ## 维护环境版本
 
-在仓库根目录执行 `python3 scripts/configure-environment.py {'production' if environment == 'production' else branch}`，同步三个宿主的配置、版本、技能连接说明和安装文档；开发、测试、生产必须分别发布到 `dev`、`test`、`main`。
+同一个代码库共用 `skills/film-skill`、执行协议和后端 MCP，客户端使用各自的 JSON 配置。`dev`、`test`、`main` 分支分别对应开发、测试、生产环境；每个分支都包含三种客户端的适配。
+
+拉取对应分支后，默认同步全部客户端配置：
+
+```bash
+python3 scripts/configure-environment.py {branch}
+```
+
+需要单独安装包时，用 `--client` 导出。输出默认位于 `dist/{branch}/<client>/`，可以用 `--output` 指定新目录；导出不会修改源仓库或已有授权。
+
+```bash
+python3 scripts/configure-environment.py {branch} --client codex
+python3 scripts/configure-environment.py {branch} --client claude
+python3 scripts/configure-environment.py {branch} --client workbuddy
+```
+
+| 客户端参数 | 插件配置 | MCP 配置 |
+| --- | --- | --- |
+| `codex` | `.codex-plugin/plugin.json` | `.mcp.json`，已注册应用时附带 `.app.json` |
+| `claude` | `.claude-plugin/plugin.json` | `.mcp.claude.json` |
+| `workbuddy` | `.codebuddy-plugin/plugin.json` | 内置 `mcpServers` |
+
+导出目录保留该客户端的 marketplace 和一份共享技能、文档与脚本。WorkBuddy 采用已有 CodeBuddy 适配配置，完整安装和 OAuth 仍需在实际客户端验收。`--client all --output <目录>` 可以导出通用安装包。相同输出可重复导出；内容变化时请选择新的或空的目录，避免覆盖已有文件。旧参数 `production` 继续作为 `main` 的别名。
+
+账号面板与凭据保存由各客户端管理；OpenAI 的应用 ID 仅用于 Codex 配置。每个客户端首次使用分别授权，后续按宿主能力自动续期。
 
 '''
         path.write_text(header + tail)
 
+def export_package(root, environment, client, output, openai_app_id=None):
+    """Render from shared sources in isolation; never overwrite an existing package."""
+    environment = normalize_environment(environment)
+    if client not in (*CLIENTS, 'all'):
+        raise ValueError('Client must be all, codex, claude, or workbuddy.')
+    if openai_app_id is not None and client not in ('all', 'codex'):
+        raise ValueError('--openai-app-id applies only to codex or all clients.')
+    root, output = root.resolve(), output.resolve()
+    if root == output or root.is_relative_to(output):
+        raise ValueError('Output must be a separate package directory, not the source or its parent.')
+    if output.is_relative_to(root) and not output.is_relative_to(root / 'dist'):
+        raise ValueError('Inside the repository, export packages only under dist/.')
+    if output.exists() and not output.is_dir():
+        raise ValueError('Output must be a directory.')
+
+    with tempfile.TemporaryDirectory(prefix='creatly-package-') as temp:
+        staged = Path(temp)
+        ignore = shutil.ignore_patterns('__pycache__', '*.pyc', 'node_modules', '.env', '*.token')
+        plugin = staged / 'plugins/creatly-video-director'
+        # Release packages use the remote MCP; historical local bridge binaries are unnecessary.
+        shutil.copytree(root / 'plugins/creatly-video-director', plugin,
+                        ignore=shutil.ignore_patterns('mcp', '__pycache__', '*.pyc', 'node_modules', '.env', '*.token'))
+        for directory in ['.agents', '.claude-plugin', '.codebuddy-plugin', 'config']:
+            source = root / directory
+            if source.exists():
+                shutil.copytree(source, staged / directory, ignore=ignore)
+        shutil.copy(root / 'README.md', staged / 'README.md')
+        configure(staged, environment, openai_app_id)
+        selected = CLIENTS if client == 'all' else {client: CLIENTS[client]}
+        for host, (manifest, marketplace, connection) in CLIENTS.items():
+            if host not in selected:
+                shutil.rmtree(plugin / manifest)
+                shutil.rmtree(staged / marketplace)
+                if connection:
+                    (plugin / connection).unlink()
+        if 'codex' not in selected:
+            (plugin / '.app.json').unlink(missing_ok=True)
+        shutil.rmtree(staged / 'config', ignore_errors=True)
+        branch, domain, _, version = ENVIRONMENTS[environment]
+        manifests = '\n'.join(f'- `plugins/creatly-video-director/{adapter[0]}/plugin.json`'
+                              for adapter in selected.values())
+        (staged / 'INSTALL.md').write_text(f'''# Creatly {client} 安装包
+
+源分支：`{branch}`；版本：`{version}`；MCP：`https://{domain}/api/agent/mcp/v2`。
+
+本目录是参数生成的安装包，技能来自同一份 `film-skill`。将本目录作为对应客户端的本地 marketplace 导入；完整使用说明见 [README](README.md)。WorkBuddy 的完整安装及 OAuth 尚需实测。
+
+包含的客户端配置：
+
+{manifests}
+
+生成文件在本目录中维护；更新时从源仓库重新导出到新目录。插件不包含账号凭据，授权由客户端保存。
+''')
+        expected = {p.relative_to(staged): p.read_bytes() for p in staged.rglob('*') if p.is_file()}
+        if output.exists() and any(output.iterdir()):
+            existing = {p.relative_to(output): p.read_bytes() for p in output.rglob('*') if p.is_file()}
+            if existing == expected:
+                return output
+            raise ValueError('Output is not empty and differs from this package; choose a new or empty directory.')
+        shutil.copytree(staged, output, dirs_exist_ok=True)
+    return output
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('environment', choices=ENVIRONMENTS)
+    parser.add_argument('environment', choices=(*ENVIRONMENTS, 'main'))
+    parser.add_argument('--client', choices=('all', *CLIENTS), default='all',
+                        help='Export only this client; default all configures the shared source in place.')
+    parser.add_argument('--output', type=Path, help='Export to a new or empty marketplace directory.')
     parser.add_argument('--openai-app-id', help='Actual registered OpenAI app ID for this environment.')
     args = parser.parse_args()
-    configure(Path(__file__).resolve().parents[1], args.environment, args.openai_app_id)
+    source_root = Path(__file__).resolve().parents[1]
+    try:
+        if args.client != 'all' or args.output is not None:
+            environment = normalize_environment(args.environment)
+            branch = ENVIRONMENTS[environment][0]
+            output = args.output or source_root / 'dist' / branch / args.client
+            print(export_package(source_root, environment, args.client, output, args.openai_app_id))
+        else:
+            configure(source_root, args.environment, args.openai_app_id)
+    except ValueError as error:
+        parser.error(str(error))
