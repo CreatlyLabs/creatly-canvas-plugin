@@ -10,13 +10,13 @@
     {
       "name": "creatly-video-director",
       "description": "Create and revise short films on the Creatly canvas.",
-      "version": "0.2.12-test",
+      "version": "0.2.12-dev",
       "author": {
         "name": "Creatly"
       },
       "category": "design",
       "source": "./plugins/creatly-video-director",
-      "homepage": "https://test.yuanji.studio"
+      "homepage": "https://dev.yuanji.studio"
     }
   ]
 }

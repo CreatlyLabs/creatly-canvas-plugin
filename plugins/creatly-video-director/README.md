@@ -1,6 +1,6 @@
-# Creatly Canvas Plugin · 测试环境
+# Creatly Canvas Plugin · 开发环境
 
-本分支 `test` 通过远程 MCP 连接 [test.yuanji.studio](https://test.yuanji.studio/)，无需启动本地画布服务。
+本分支 `dev` 通过远程 MCP 连接 [dev.yuanji.studio](https://dev.yuanji.studio/)，无需启动本地画布服务。
 
 ## 环境对应
 
@@ -15,18 +15,18 @@
 ## Codex 安装
 
 ```bash
-codex plugin marketplace add https://github.com/loushengtao/creatly-canvas-plugin.git --ref test
+codex plugin marketplace add https://github.com/loushengtao/creatly-canvas-plugin.git --ref dev
 codex plugin add creatly-video-director@creatly
 ```
 
 ## Claude Code 安装
 
 ```text
-/plugin marketplace add https://github.com/loushengtao/creatly-canvas-plugin.git#test
+/plugin marketplace add https://github.com/loushengtao/creatly-canvas-plugin.git#dev
 /plugin install creatly-video-director@creatly
 ```
 
-首次连接时，按宿主提示完成 yuanji 的 OAuth 授权，在 **test.yuanji.studio** 登录并选择空间。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期](docs/oauth-connection.md)。
+首次连接时，按宿主提示完成 yuanji 的 OAuth 授权，在 **dev.yuanji.studio** 登录并选择空间。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期](docs/oauth-connection.md)。
 
 ## 一次授权与自动续期
 
@@ -45,28 +45,28 @@ codex plugin add creatly-video-director@creatly
 
 ## WorkBuddy
 
-下载 [test 分支 ZIP](https://github.com/loushengtao/creatly-canvas-plugin/archive/refs/heads/test.zip)，按宿主的本地 marketplace 安装流程导入。需要支持 HTTP MCP 与 OAuth；完整安装与授权流程尚未端到端验证。
+下载 [dev 分支 ZIP](https://github.com/loushengtao/creatly-canvas-plugin/archive/refs/heads/dev.zip)，按宿主的本地 marketplace 安装流程导入。需要支持 HTTP MCP 与 OAuth；完整安装与授权流程尚未端到端验证。
 
 ## CLI / 手动 MCP 配置
 
 Codex：
 
 ```bash
-codex mcp add creatly-test --url https://test.yuanji.studio/api/agent/mcp/v2
-codex mcp login creatly-test
+codex mcp add creatly-dev --url https://dev.yuanji.studio/api/agent/mcp/v2
+codex mcp login creatly-dev
 ```
 
 Claude Code：
 
 ```text
-claude mcp add --transport http creatly-test https://test.yuanji.studio/api/agent/mcp/v2
+claude mcp add --transport http creatly-dev https://dev.yuanji.studio/api/agent/mcp/v2
 /mcp
 ```
 
 手动 HTTP MCP 配置：
 
 ```json
-{"mcpServers": {"creatly-test": {"type": "http", "url": "https://test.yuanji.studio/api/agent/mcp/v2"}}}
+{"mcpServers": {"creatly-dev": {"type": "http", "url": "https://dev.yuanji.studio/api/agent/mcp/v2"}}}
 ```
 
 手动 MCP 配置不包含插件创作技能；已通过插件连接时无需重复添加。
@@ -86,15 +86,15 @@ claude mcp add --transport http creatly-test https://test.yuanji.studio/api/agen
 拉取对应分支后，默认同步全部客户端配置：
 
 ```bash
-python3 scripts/configure-environment.py test
+python3 scripts/configure-environment.py dev
 ```
 
-需要单独安装包时，用 `--client` 导出。输出默认位于 `dist/test/<client>/`，可以用 `--output` 指定新目录；导出不会修改源仓库或已有授权。
+需要单独安装包时，用 `--client` 导出。输出默认位于 `dist/dev/<client>/`，可以用 `--output` 指定新目录；导出不会修改源仓库或已有授权。
 
 ```bash
-python3 scripts/configure-environment.py test --client codex
-python3 scripts/configure-environment.py test --client claude
-python3 scripts/configure-environment.py test --client workbuddy
+python3 scripts/configure-environment.py dev --client codex
+python3 scripts/configure-environment.py dev --client claude
+python3 scripts/configure-environment.py dev --client workbuddy
 ```
 
 | 客户端参数 | 插件配置 | MCP 配置 |
