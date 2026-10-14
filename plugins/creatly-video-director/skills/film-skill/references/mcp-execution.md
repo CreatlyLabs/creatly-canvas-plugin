@@ -14,7 +14,7 @@
 
 标准 v2 工具参数按实时 inputSchema **平铺**传递，不包裹旧版 `payload`，不传本地 `clientId`。projectId/nodeId/elementId/assetId/fileId 原样使用各自读取接口返回的字符串；当前 v2 资源 ID 是十进制字符串，不转成 JavaScript Number，也不自行加密或解密。mentionToken、uploadId、generationRef 等标识原样保留，不从 workbench URL 推算 ID。版本号和其他字段遵循实际 Schema 的类型。
 
-先检查实时 inputSchema：支持 brief 时，用 `getCanvasContext(detail="brief", includeSubjects=false)` 按游标定位节点（仅 ID、名称、类型、状态与关系，不含正文或生成参数，最多 100 个/页）；需要正文预览时才用 `getCanvasOutline`。已知 nodeId/externalKey 时直接读对应节点。`getCanvasContext(detail="compact")` 仍含正文，最多 20 个/页；full 最多 5 个/页。`complete=false` 表示还没读完，不能因为当前页没出现目标就判定节点不存在。nextCursor 原样传回，项目、detail、nodeType、includeSubjects 保持一致；版本变化时从第一页重新读。响应上限 256 KiB，超限时减小 limit 或改用 getNodes 指定更少 fields，不能截断全文后覆盖原节点。只有需要完整画布快照或主体资产详情时才读取对应 context；保存回执用于同一版本的后续检查，不把大份 JSON 重复回显到对话。读取返回的 scope 必须覆盖修改范围；过滤快照不能当作完整画布。缺少字段不等于空值，不建立另一个可写 Film DSL 副本。
+先检查实时 inputSchema：支持 brief 时，用 `getCanvasContext(detail="brief", includeSubjects=false)` 按游标定位节点（仅 ID、名称、类型、状态与关系，不含正文或生成参数，新后端默认最多 500 个/页（正常长度的 485 个节点可一次读完；旧部署可能仍是 100 个，以实时 Schema 为准））；需要正文预览时才用 `getCanvasOutline`。已知 nodeId/externalKey 时直接读对应节点。`getCanvasContext(detail="compact")` 仍含正文，最多 20 个/页；full 最多 5 个/页。`complete=false` 表示还没读完，不能因为当前页没出现目标就判定节点不存在。nextCursor 原样传回，项目、detail、nodeType、includeSubjects 保持一致；版本变化时从第一页重新读。响应上限 256 KiB；新后端 brief 超限时保留完整节点并自动分页，不截断名称。其他详情超限时减小 limit 或改用 getNodes 指定更少 fields，不能截断全文后覆盖原节点。只有需要完整画布快照或主体资产详情时才读取对应 context；保存回执用于同一版本的后续检查，不把大份 JSON 重复回显到对话。读取返回的 scope 必须覆盖修改范围；过滤快照不能当作完整画布。缺少字段不等于空值，不建立另一个可写 Film DSL 副本。
 
 ### 按需读取节点
 
@@ -23,6 +23,7 @@
 | 本轮要做什么 | getNodes 读取方式 |
 | --- | --- |
 | 看标题、状态、内容概况、是否已有媒体 | `detail="brief"`，默认 `fields=["summary"]`；最多 20 个节点，正文只预览 60 字 |
+| 本批生成门禁 | `detail="full", fields=["details","content","generationParams","subjects","media"]`；只取本批节点及真实依赖，保存回执运行 `--scope batch --nodes`；需要主体素材时补读相关素材节点，不遍历 full 画布 |
 | 修改正文或提示词 | `detail="full", fields=["content","writeState"]`，只读目标节点；预览不能覆盖全文 |
 | 核对模型、分辨率、音频开关 | `detail="full", fields=["generationSettings"]`，没有提示词和参考列表 |
 | 检查或替换垫图 | `detail="full", fields=["generationParams","writeState"]`；需要主体展开素材时再加 subjects，不为查参考图顺带取正文、时间轴 |
@@ -92,7 +93,7 @@ full 每批最多 5 个节点，长提示词通常一次只读 1 个。full 的 
 
 - 分镜前：色卡主体已有图片。
 - 视频前：本镜出场角色各有至少 3 个视角；有场景图和对应状态的站位图；提示词 `[@]` 了全部出场主体，并写清轴线和正反打；每个镜头的物料已放进本镜组。
-- 准备提交生成时：只有门禁需要完整快照时才按 nextCursor 读 full 的全部页，将同一版本回执保存为 {"pages":[回执1,回执2,...]}，完整后运行门禁；同一画布版本复用已保存快照，不反复把全量正文放入对话；局部修改或移除垫图不触发这次全量门禁读取。运行插件的 `scripts/film_gate_check.py`（用法见 [脚本说明](../../../scripts/README.md)「生成前门禁」）；有未豁免的 FAIL 或脚本退出码 2 不提交 generateNodes。上下文读取超时、未读完或未成功加载，不等于门禁通过；只有用户明确豁免时才跳过相关检查。本批范围与费用已在对话中确认。
+- 准备提交局部生成时：用 getNodes 精读目标、所属组、入向依赖、referenceResources.sourceNodeId 和 subjects.references.elementNodeId 对应节点，以及本批出场角色/所用色卡的必要素材；fileRef 直传的引用没有 sourceNodeId 时不虚构画布节点。依赖按需选 fields：组/Shot 只用 details，参考图片加 media，音频加 content，主体加 subjects；不顺带读取无关素材的完整提示词。保存同一项目、同一版本的真实回执为 {"reads":[回执1,回执2,...],"contextNodeIds":[本批色卡等真实节点ID]}，执行 `scripts/film_gate_check.py batch.json --scope batch --nodes <本批节点ID>`。只补读缺少的本批字段/依赖，不收齐无关节点；已有 ID 时不先读画布目录，同一版本回执复用。局部生成、修改或移除垫图都不触发全画布 full 分页。只有用户要求整片审查时，才按 nextCursor 收齐 full 的全部页为 {"pages":[...]}，执行 project 门禁。门禁用法见 [脚本说明](../../../scripts/README.md)；有未豁免的 FAIL 或退出码 2 不提交 generateNodes。读取失败或主体素材未核验不等于检查通过，缺少素材详情时按相关范围补读，不宣称已验证；用户明确豁免时才跳过对应关卡。本批范围与费用已在对话中确认。
 
 用户可以对任一关卡明确说「跳过」或「这次不用」，照做即可（运行门禁时用 `--skip <关卡名>`）：在回复里点明跳过了哪一项、可能的影响，不反复劝阻。风格、景别、镜头数量、时长、垫图多少、是否先出分镜图等创作选择由用户决定，skill 只给默认值和建议，不替用户做硬性决定。
 

@@ -304,4 +304,4 @@ content: 完整剧本
 
 只写剧本的局部任务可以单独调用 `createNode`，但仍须传入最新 FULL 快照中的 `projectId`、稳定 `idempotencyKey` 和唯一 `clientRef`。实时 schema 提供的 `baseVersion` 只作可选冲突检查，不是全局 Compare-And-Set。
 
-已有项目先从 FULL 快照确认目标 Script，只用 `updateNode` 更新明确对应本作品的真实 `nodeId`。写入后重新读取 FULL 快照，验证完整内容，并从该快照取得当前 `currentVersion`。
+已有项目先用 brief 目录定位目标 Script；已知 ID 时直接用 getNodes 精读 content、writeState。只用 `updateNode` 更新明确对应本作品的真实 `nodeId`；写入后回读该 Script 的完整 content 验证内容及 currentVersion，无需读取整张 full 画布。
