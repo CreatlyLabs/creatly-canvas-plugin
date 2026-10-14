@@ -1,10 +1,11 @@
-"""生成前门禁：读取 getCanvasContext(detail="full") 的快照，逐节点检查强制关卡。
+"""生成前门禁：局部生成读取 getNodes；整片审查读取完整 full 画布快照。
 
 用法：
     python3 scripts/film_gate_check.py canvas.json
-    python3 scripts/film_gate_check.py canvas.json --nodes <id>,<id> --skip blocking,axis
+    python3 scripts/film_gate_check.py batch.json --scope batch --nodes <id>,<id>
 
 canvas.json 可以是完整 full 回执，或 {"pages": [同一版本的全部分页回执]}；也兼容旧版完整回执。
+batch.json 为 {"reads": [同一项目/版本的 getNodes 回执], "contextNodeIds": [本批色卡等节点ID]}。
 FAIL 为强制关卡，存在未豁免的 FAIL 时退出码为 1；WARN 只提示。
 用户明确要求跳过某项时，用 --skip 传入关卡名，输出里会标为「用户豁免」。
 """
@@ -80,7 +81,7 @@ def load_canvas(path):
         return nodes, subjects
     data = unwrap_canvas(source)
     if data.get('complete') is False:
-        raise ValueError('上下文只有一页；请继续 nextCursor，把同一版本所有 full 回执放入 pages')
+        raise ValueError('上下文只有一页；局部生成请用 getNodes 回执和 --scope batch --nodes；只有整片审查才收齐 full 的 pages')
     if data.get('detail') in ('brief', 'compact'):
         raise ValueError('概要不含生成参数；门禁需要 full 回执')
     return data['nodes'], data.get('subjects') or {}
@@ -88,6 +89,102 @@ def load_canvas(path):
 
 def load_nodes(path):
     return load_canvas(path)[0]
+
+
+def load_batch(path, only):
+    """Normalize field-projected getNodes receipts, keeping only targets and their dependencies."""
+    if not only:
+        raise ValueError('batch 必须用 --nodes 明确本批生成节点')
+    with open(path, encoding='utf-8') as f:
+        source = json.load(f)
+    reads = source.get('reads') if isinstance(source, dict) else None
+    if not isinstance(reads, list) or not reads:
+        raise ValueError('batch 需要 reads 数组，保存真实 getNodes 回执；不需要整张 full 画布')
+    merged, aliases, project = {}, [], None
+    for raw in reads:
+        read = unwrap_canvas(raw)
+        p = read.get('project') or {}
+        identity = (p.get('id'), p.get('currentVersion'))
+        if None in identity or read.get('detail') != 'full' or not isinstance(read.get('fields'), list):
+            raise ValueError('batch 需要带项目版本和 fields 的 getNodes(detail="full") 真实回执')
+        if project is not None and project != identity:
+            raise ValueError('本批读取的项目或版本不一致；只重新读取本批受影响节点')
+        project = identity
+        aliases.extend(read.get('mentionSubjects') or [])
+        for n in read['nodes']:
+            if not isinstance(n.get('id'), str) or not n['id']:
+                raise ValueError('节点 ID 必须保留为字符串')
+            existing = merged.setdefault(n['id'], {})
+            for key, value in n.items():
+                if key in existing and existing[key] != value:
+                    raise ValueError(f'节点 {n["id"]} 的重复回执冲突')
+                existing[key] = value
+    by = {}
+    for id, n in merged.items():
+        details = n.get('details')
+        if not isinstance(details, dict) or not {'type', 'label', 'subType', 'parentNode', 'parentIds'} <= details.keys():
+            raise ValueError(f'节点 {id} 缺少完整 details')
+        if not isinstance(details['parentIds'], list) or ('media' in n and not isinstance(n['media'], list)):
+            raise ValueError(f'节点 {id} 的关系或媒体格式无效')
+        node = dict(n, **details)
+        if 'media' in n:
+            for media_type, field in [('IMAGE', 'frameFiles'), ('VIDEO', 'videoFiles'), ('AUDIO', 'audioFiles')]:
+                node[field] = [m['fileRef'] for m in n['media'] if m.get('mediaType') == media_type]
+        if node['type'] == 'element' and 'subjects' in node and node['subjects'] is None:
+            node['subjects'] = {'subject': None}
+        by[id] = node
+    contexts = source.get('contextNodeIds') or []
+    if not isinstance(contexts, list) or any(not isinstance(id, str) for id in contexts):
+        raise ValueError('contextNodeIds 必须是本批上下文节点的字符串 ID 数组')
+    needed = set(only) | set(contexts)
+    missing = needed - by.keys()
+    if missing:
+        raise ValueError(f'未读取本批节点：{", ".join(sorted(missing))}')
+    alias_nodes = {}
+    for a in aliases:
+        for key in ('mentionId', 'elementId', 'label'):
+            if a.get(key) and a.get('elementNodeId'):
+                alias_nodes[a[key]] = a['elementNodeId']
+    for id in only:
+        n = by[id]
+        if n['type'] not in ('frame', 'video'):
+            raise ValueError(f'本批节点 {id} 不是分镜或视频')
+        needed.update(n.get('parentIds') or [])
+        if n.get('parentNode'):
+            needed.add(n['parentNode'])
+        for r in (n.get('generationParams') or {}).get('referenceResources') or []:
+            if r.get('sourceNodeId'):
+                needed.add(r['sourceNodeId'])
+        for r in (n.get('subjects') or {}).get('references') or []:
+            if r.get('elementNodeId'):
+                needed.add(r['elementNodeId'])
+        for ref in MENTION.findall(prompt_of(n)):
+            if ref in alias_nodes:
+                needed.add(alias_nodes[ref])
+            else:
+                needed.update(e['id'] for e in by.values() if e['type'] == 'element' and ref in (e['id'], e['label']))
+    missing = needed - by.keys()
+    if missing:
+        raise ValueError(f'未读取本批依赖：{", ".join(sorted(missing))}；用 getNodes 补读，不要读取全画布')
+    # Asset pictures and the parent of a source picture are relevant; unrelated subject libraries are not.
+    needed.update(n['parentNode'] for id, n in by.items() if id in needed and n.get('parentNode') in by)
+    elements = {id for id in needed if by[id]['type'] == 'element'}
+    needed.update(id for id, n in by.items() if n.get('parentNode') in elements)
+    for id in needed:
+        n = by[id]
+        required = {'details'}
+        if id in only:
+            required |= {'content', 'generationParams', 'media', 'subjects'}
+        elif n['type'] == 'element':
+            required |= {'media', 'subjects'}
+        elif n['type'] in ('frame', 'video', 'audio'):
+            required.add('media')
+            if n['type'] == 'audio':
+                required.add('content')
+        missing = required - n.keys()
+        if missing:
+            raise ValueError(f'节点 {id} 缺少字段 {", ".join(sorted(missing))}；用 getNodes 补读，缺失不能当作空值')
+    return [n for id, n in by.items() if id in needed], {'elements': aliases}
 
 
 def subject_aliases(subjects):
@@ -122,7 +219,7 @@ class Checker:
         self.max_images, self.max_audios, self.max_duration = max_images, max_audios, max_duration
         self.skip = skip
         self.results = []
-        self.elements = {n['label']: n for n in nodes if n['type'] == 'element'}
+        self.elements = {n.get('label') or n['id']: n for n in nodes if n['type'] == 'element'}
         self.element_by_ref = dict(self.elements)
         self.element_by_ref.update({e['id']: e for e in self.elements.values()})
         for element in self.elements.values():
@@ -133,6 +230,12 @@ class Checker:
         for ref, label in subject_aliases(subjects or {}).items():
             if label in self.elements:
                 self.element_by_ref[ref] = self.elements[label]
+        for alias in (subjects or {}).get('elements') or []:
+            element = self.by.get(alias.get('elementNodeId'))
+            if element and element['type'] == 'element':
+                for key in ('mentionId', 'elementId', 'id', 'label'):
+                    if alias.get(key):
+                        self.element_by_ref[alias[key]] = element
         self.subject_ids = set(e['id'] for e in self.elements.values())
         self.subject_ids |= {n['id'] for n in nodes if n.get('parentNode') in self.subject_ids}
         self.card = next((e for name, e in self.elements.items() if COLOR_CARD in name), None)
@@ -177,12 +280,12 @@ class Checker:
             if views < 3:
                 self.add(FAIL, 'character-views', e, f'只有 {views} 个视角，视频前每个角色至少 3 个视角')
 
-    def check_common(self, node):
+    def check_common(self, node, asset=False, strict_mentions=False):
         text = prompt_of(node)
         found, raw = self.mentions(text)
         opaque = 0
         for element, name in zip(found, raw):
-            if element is None and OPAQUE_REF.match(name):
+            if element is None and OPAQUE_REF.match(name) and not strict_mentions:
                 opaque += 1
             elif element is None:
                 self.add(FAIL, 'unknown-subject', node, f'提及的主体 [@{name}] 不存在')
@@ -190,10 +293,10 @@ class Checker:
                 self.add(FAIL, 'subject-link', node, f'提及的主体「{element["label"]}」未关联有效主体库记录')
         if opaque:
             self.add(WARN, 'unverified-mention', node, f'{opaque} 处 @ 是站点保存后的编码 ID，脚本无法核对对应哪个主体，请在画布上确认')
-        if self.card is not None and self.card not in found and not CARD_LINE.search(text):
+        if not asset and self.card is not None and self.card not in found and not CARD_LINE.search(text):
             self.add(FAIL, 'color-card-mention', node, f'提示词没有 [@{self.card["label"]}]')
         parent = self.by.get(node.get('parentNode') or '')
-        if not parent or parent['type'] != 'group':
+        if not asset and (not parent or parent['type'] != 'group'):
             self.add(FAIL, 'group', node, '没有放进本镜组')
         for pid in node.get('parentIds') or []:
             if pid in self.subject_ids:
@@ -275,14 +378,18 @@ class Checker:
         return any(n.get('parentNode') == group and any(p in shots for p in n.get('parentIds') or [])
                    for n in self.nodes)
 
-    def run(self, only=None):
+    def run(self, only=None, batch=False):
+        if only and only - self.by.keys():
+            self.add(FAIL, 'missing-node', None, '待检查节点不存在：' + ', '.join(sorted(only - self.by.keys())))
         self.check_project()
         for node in self.nodes:
             if only and node['id'] not in only:
                 continue
             if node['type'] == 'video':
-                self.check_common(node)
+                self.check_common(node, strict_mentions=batch)
                 self.check_video(node)
+            elif node['type'] == 'frame' and batch:
+                self.check_common(node, asset=node['id'] in self.subject_ids, strict_mentions=True)
             elif node['type'] == 'frame' and not node.get('subType') and node['id'] not in self.subject_ids \
                     and self.is_shot_frame(node):
                 self.check_common(node)
@@ -291,7 +398,8 @@ class Checker:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='分镜与视频生成前门禁')
-    parser.add_argument('canvas', help='getCanvasContext(detail="full") 的 JSON 文件')
+    parser.add_argument('canvas', help='本批 getNodes 回执 JSON，或完整画布快照 JSON')
+    parser.add_argument('--scope', choices=('project', 'batch'), default='project', help='batch 只检查本批及真实依赖；project 审查整片')
     parser.add_argument('--nodes', help='只检查这些节点 ID（逗号分隔），默认检查全部分镜与视频')
     parser.add_argument('--skip', default='', help='用户明确豁免的关卡名（逗号分隔）')
     parser.add_argument('--max-images', type=int, default=30, help='模型参考图上限，以 listGenerationModels 为准')
@@ -302,14 +410,15 @@ def main(argv=None):
     skip = {s.strip() for s in args.skip.split(',') if s.strip()}
     only = {s.strip() for s in args.nodes.split(',')} if args.nodes else None
     try:
-        nodes, subjects = load_canvas(args.canvas)
-    except (ValueError, KeyError) as exc:
+        nodes, subjects = load_batch(args.canvas, only) if args.scope == 'batch' else load_canvas(args.canvas)
+    except (ValueError, KeyError, TypeError) as exc:
         if args.json:
-            print(json.dumps({'error': 'incomplete_canvas_context', 'message': str(exc)}, ensure_ascii=False))
+            code = 'incomplete_batch_context' if args.scope == 'batch' else 'incomplete_canvas_context'
+            print(json.dumps({'error': code, 'message': str(exc)}, ensure_ascii=False))
         else:
             print(f'无法执行门禁：{exc}', file=sys.stderr)
         return 2
-    results = Checker(nodes, args.max_images, args.max_audios, args.max_duration, skip, subjects).run(only)
+    results = Checker(nodes, args.max_images, args.max_audios, args.max_duration, skip, subjects).run(only, batch=args.scope == 'batch')
     fails = [r for r in results if r[0] == FAIL]
     if args.json:
         print(json.dumps([dict(zip(('level', 'gate', 'node', 'message'), r)) for r in results], ensure_ascii=False, indent=2))

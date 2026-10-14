@@ -115,7 +115,7 @@ python3 scripts/configure-environment.py main --client workbuddy
 
 当前工具包括 `listProjects`、`projectCreate`、`getCanvasContext`、`getCanvasOutline`、`getNodes`、`createNode`、`updateNode`、`deleteNodes`、`createSubject`、`upload`、`listGenerationModels`、`listSystemVoices`、`calculateCredits`、`generateNodes`、`getGenerationStatus`；能力以实时 `tools/list` 为准。
 
-`getCanvasContext` 新接口默认 brief，仅返回节点 ID、名称、类型、状态和关系；按 nextCursor 翻页（brief 100、compact 20、full 5 个/页）。定位后用 `getNodes` 按 ID 和 fields 精读。旧部署以实时 inputSchema 为准，尚无 brief 时使用 getCanvasOutline。主体列表按需读取 includeSubjects。`createSubject` 的 kind 为 character/scene；道具和自定义主体使用 scene 分支的 subjectType=prop/custom，自定义分类传真实 subjectTypeId。
+`getCanvasContext` 新接口默认 brief，仅返回节点 ID、名称、类型、状态和关系；按 nextCursor 翻页（新版 brief 500、compact 20、full 5 个/页；brief 超过 256 KiB 时自动缩小页数）。已知 ID 直接用 `getNodes` 按 fields 精读；局部生成使用 batch 门禁，不遍历整张 full 画布。旧部署以实时 inputSchema 为准，尚无 brief 时使用 getCanvasOutline。主体列表按需读取 includeSubjects。`createSubject` 的 kind 为 character/scene；道具和自定义主体使用 scene 分支的 subjectType=prop/custom，自定义分类传真实 subjectTypeId。
 
 上传统一走 `upload`：`action="prepare"` 申请直传 → 本机上传原始字节 → `action="complete"` 登记。支持图片、视频、音频、文本（txt/md）；文本返回文件引用，需要在画布展示时再创建直接输入的文本节点。上传不自动发起生成。
 

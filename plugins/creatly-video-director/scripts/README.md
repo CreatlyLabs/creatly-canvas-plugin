@@ -32,13 +32,15 @@ python3 -m unittest discover -s scripts -p 'test_upload_file.py'
 
 # 生成前门禁
 
-提交分镜或视频的 `generateNodes` 之前，先把 `getCanvasContext(detail="full")` 的结果存成 JSON，再运行：
+局部提交分镜或视频的 `generateNodes` 时，直接用 `getNodes(detail="full", fields=["details","content","generationParams","subjects","media"])` 读取本批目标及真实依赖，不收齐整张 full 画布。每批最多 5 个节点；保存同一项目、同一版本回执到 batch.json：`{"reads":[回执对象,...],"contextNodeIds":["本批所用色卡节点ID"]}`。reads 中必须放实际 JSON 对象，不是占位字符串。
 
-新后端的 full 每页最多 5 个节点。按 nextCursor 收齐同一项目、版本、FULL 范围的全部页，将原始回执存成 `{"pages":[回执1,回执2,...]}`。最后一页必须 complete=true，且节点总数与 totalNodes 一致。脚本拒绝未读完、brief/compact、混版本及重复节点的回执，退出码为 2。旧后端无分页的完整 full 回执仍可读取。概要浏览用 brief，单节点检查用 getNodes，无需为它们读取完整门禁快照。
+目标读取上述五个字段；依赖只读取检查所用字段：组/Shot 用 details，参考图片用 details/media，音频另加 content，主体用 details/media/subjects。`reads` 中放原始回执对象，可合并同一节点不同字段的读取；缺少必需字段不能当作空值。读取目标的 parentNode、parentIds、referenceResources.sourceNodeId、subjects.references.elementNodeId 及 @ 对应主体，再补读本批角色/色卡的必要素材节点。contextNodeIds 标明本批所用的色卡等上下文，避免让无关角色和旧色卡影响本批。fileRef 直传资源无 sourceNodeId 时无需凭空创建或查找节点。主体正式素材仍按实际主体读取核验；脚本看不到的素材不能宣称已经验证。已知 ID 时直接精读，未知 ID 先浏览 brief 目录；同一版本已读字段复用，版本变化只刷新本批。
 
 ```bash
-python3 scripts/film_gate_check.py '/private/path/canvas.json' --nodes '<本批节点ID,逗号分隔>' --max-images 30
+python3 scripts/film_gate_check.py '/private/path/batch.json' --scope batch --nodes '<本批节点ID,逗号分隔>' --max-images 30
 ```
+
+只有整片审查才读取 `getCanvasContext(detail="full")` 的全部页，保存为 `{"pages":[回执1,回执2,...]}`，然后运行 `python3 scripts/film_gate_check.py canvas.json --scope project`。所有页须为同一项目/版本/FULL 范围，最后 complete=true，节点总数与 totalNodes 一致。默认 project 模式保留旧完整 full 回执兼容，并拒绝用 brief/compact 或未读完的页冒充全量。batch 模式要求明确 --nodes，缺少目标、依赖、字段、版本不一致或重复回执冲突均退出码 2；普通非 Shot 图片也会检查本批提示词与引用。
 
 `--max-images` 取实时 `listGenerationModels` 返回的参考图上限。输出每行一条：`FAIL` 是强制关卡，有未豁免的 FAIL 时退出码为 1，不提交生成；`WARN` 只提示，在回复里说明即可。
 
