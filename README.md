@@ -45,6 +45,14 @@ codex plugin add creatly-video-director@creatly
 
 ## WorkBuddy
 
+申请开放平台连接器市场时，使用独立的 MCP + Skill 包，不能上传下方本地 marketplace 包：
+
+```bash
+python3 scripts/package-workbuddy-connector.py dev
+```
+
+生成 connector-meta.json、mcp.json、icon.svg、公开技能和 ZIP。参见 [开放平台连接器打包与联调](https://github.com/CreatlyLabs/creatly-canvas-plugin/blob/dev/connectors/workbuddy/README.md)。目录检查通过不代表网站 OAuth 或平台审核已通过。
+
 下载 [dev 分支 ZIP](https://github.com/CreatlyLabs/creatly-canvas-plugin/archive/refs/heads/dev.zip)，按宿主的本地 marketplace 安装流程导入。需要支持 HTTP MCP 与 OAuth；完整安装与授权流程尚未端到端验证。
 
 ## CLI / 手动 MCP 配置

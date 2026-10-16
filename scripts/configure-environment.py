@@ -8,9 +8,9 @@ import tempfile
 from pathlib import Path
 
 ENVIRONMENTS = {
-    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.14-dev'),
-    'test': ('test', 'test.yuanji.studio', '测试', '0.2.14-test'),
-    'production': ('main', 'yuanji.studio', '生产', '0.2.14'),
+    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.15-dev'),
+    'test': ('test', 'test.yuanji.studio', '测试', '0.2.15-test'),
+    'production': ('main', 'yuanji.studio', '生产', '0.2.15'),
 }
 
 # Keep the host's OAuth credential identity stable when releasing a new plugin version.
@@ -164,6 +164,14 @@ codex plugin add creatly-video-director@creatly
 维护者在平台创建对应环境的自定义 MCP 插件后，将实际应用 ID 写入 `config/openai-apps.json`；详细步骤见 [账号连接与续期]({connection_guide})。平台注册、后端部署和真实账户连接均完成后才算面板验收通过。三个环境使用各自的应用 ID，升级时保留已有映射。
 
 ## WorkBuddy
+
+申请开放平台连接器市场时，使用独立的 MCP + Skill 包，不能上传下方本地 marketplace 包：
+
+```bash
+python3 scripts/package-workbuddy-connector.py {branch}
+```
+
+生成 connector-meta.json、mcp.json、icon.svg、公开技能和 ZIP。参见 [开放平台连接器打包与联调](https://github.com/CreatlyLabs/creatly-canvas-plugin/blob/{branch}/connectors/workbuddy/README.md)。目录检查通过不代表网站 OAuth 或平台审核已通过。
 
 下载 [{branch} 分支 ZIP](https://github.com/CreatlyLabs/creatly-canvas-plugin/archive/refs/heads/{branch}.zip)，按宿主的本地 marketplace 安装流程导入。需要支持 HTTP MCP 与 OAuth；完整安装与授权流程尚未端到端验证。
 

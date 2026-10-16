@@ -1,6 +1,6 @@
 {
   "name": "creatly-video-director",
-  "version": "0.2.14-dev",
+  "version": "0.2.15-dev",
   "description": "Operate the Creatly canvas, upload assets, and manage media generation through remote MCP.",
   "author": {
     "name": "Creatly"
