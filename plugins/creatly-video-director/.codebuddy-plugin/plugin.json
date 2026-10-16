@@ -1,21 +1,21 @@
 {
   "name": "creatly-video-director",
-  "version": "0.2.13",
-  "description": "Create and revise short films on the Creatly canvas.",
+  "version": "0.2.14",
+  "description": "Operate the Creatly canvas, upload assets, and manage media generation through remote MCP.",
   "author": {
     "name": "Creatly",
     "url": "https://yuanji.studio"
   },
   "homepage": "https://yuanji.studio",
   "keywords": [
-    "film",
-    "video",
-    "storyboard",
+    "canvas",
+    "media",
+    "upload",
     "mcp"
   ],
   "category": "design",
   "skills": [
-    "./skills/film-skill"
+    "./skills/creatly-canvas"
   ],
   "mcpServers": {
     "yuanji": {

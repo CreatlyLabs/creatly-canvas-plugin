@@ -1,9 +1,0 @@
-interface:
-  display_name: "电影skill"
-  short_description: "从剧本、选角、分镜与运镜设计，推进到元极画布生成、视觉验收和成片剪辑"
-  default_prompt: "使用 $film-skill 从我当前的剧本或素材接着制作，先明确本轮交付范围，再推进到元极画布。"
-dependencies:
-  tools:
-    - type: mcp
-      value: "yuanji"
-      description: "当前发行版本配置的标准创作 MCP Server"

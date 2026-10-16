@@ -5,3 +5,11 @@ node_modules/
 dist/
 __pycache__/
 *.pyc
+
+# Internal skill material and private delivery archives belong outside this repository.
+private/
+private-*/
+*private*.zip
+film-skill/
+film_gate_check.py
+test_film_gate_check.py

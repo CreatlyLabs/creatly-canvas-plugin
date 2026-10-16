@@ -8,9 +8,9 @@ import tempfile
 from pathlib import Path
 
 ENVIRONMENTS = {
-    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.13-dev'),
-    'test': ('test', 'test.yuanji.studio', '测试', '0.2.13-test'),
-    'production': ('main', 'yuanji.studio', '生产', '0.2.13'),
+    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.14-dev'),
+    'test': ('test', 'test.yuanji.studio', '测试', '0.2.14-test'),
+    'production': ('main', 'yuanji.studio', '生产', '0.2.14'),
 }
 
 # Keep the host's OAuth credential identity stable when releasing a new plugin version.
@@ -22,6 +22,22 @@ CLIENTS = {
     'claude': ('.claude-plugin', '.claude-plugin', '.mcp.claude.json'),
     'workbuddy': ('.codebuddy-plugin', '.codebuddy-plugin', None),
 }
+
+# Only explicitly reviewed operational files belong in a public client package.
+# Do not recursively copy skill/reference folders: an internal file added beside
+# these sources must never silently become part of every client download.
+PUBLIC_PLUGIN_FILES = (
+    'README.md', 'docs/oauth-connection.md',
+    '.codex-plugin/plugin.json', '.claude-plugin/plugin.json', '.codebuddy-plugin/plugin.json',
+    '.mcp.json', '.mcp.claude.json',
+    'scripts/README.md', 'scripts/upload_file.py', 'scripts/test_upload_file.py',
+    'skills/creatly-canvas/SKILL.md', 'skills/creatly-canvas/agents/openai.yaml',
+    'skills/creatly-canvas/references/mcp-execution.md',
+    'skills/creatly-canvas/references/reading.md',
+    'skills/creatly-canvas/references/nodes-and-subjects.md',
+    'skills/creatly-canvas/references/generation.md',
+    'skills/creatly-canvas/references/uploads.md',
+)
 
 def normalize_environment(environment):
     environment = 'production' if environment == 'main' else environment
@@ -98,7 +114,7 @@ def configure(root, environment, openai_app_id=None):
         old = path.read_text()
         # Keep workflow documentation separate from generated installation instructions.
         tail = old[old.index('## 图片、视频、音频上传'):] if '## 图片、视频、音频上传' in old else old[old.index('## 生成确认'):]
-        protocol = 'skills/film-skill/references/mcp-execution.md'
+        protocol = 'skills/creatly-canvas/references/mcp-execution.md'
         connection_guide = 'docs/oauth-connection.md'
         if path == root / 'README.md': protocol = 'plugins/creatly-video-director/' + protocol
         if path == root / 'README.md': connection_guide = 'plugins/creatly-video-director/' + connection_guide
@@ -119,14 +135,14 @@ def configure(root, environment, openai_app_id=None):
 ## Codex 安装
 
 ```bash
-codex plugin marketplace add https://github.com/loushengtao/creatly-canvas-plugin.git --ref {branch}
+codex plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git --ref {branch}
 codex plugin add creatly-video-director@creatly
 ```
 
 ## Claude Code 安装
 
 ```text
-/plugin marketplace add https://github.com/loushengtao/creatly-canvas-plugin.git#{branch}
+/plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git#{branch}
 /plugin install creatly-video-director@creatly
 ```
 
@@ -149,7 +165,7 @@ codex plugin add creatly-video-director@creatly
 
 ## WorkBuddy
 
-下载 [{branch} 分支 ZIP](https://github.com/loushengtao/creatly-canvas-plugin/archive/refs/heads/{branch}.zip)，按宿主的本地 marketplace 安装流程导入。需要支持 HTTP MCP 与 OAuth；完整安装与授权流程尚未端到端验证。
+下载 [{branch} 分支 ZIP](https://github.com/CreatlyLabs/creatly-canvas-plugin/archive/refs/heads/{branch}.zip)，按宿主的本地 marketplace 安装流程导入。需要支持 HTTP MCP 与 OAuth；完整安装与授权流程尚未端到端验证。
 
 ## CLI / 手动 MCP 配置
 
@@ -175,9 +191,13 @@ claude mcp add --transport http {server} {endpoint}
 
 手动 MCP 配置不包含插件创作技能；已通过插件连接时无需重复添加。
 
-## 创作与协议
+## 公开技能与协议
 
-技能统一为 `film-skill`：一个入口覆盖剧本、选角、分镜、运镜、视频提示词、画布执行和剪辑，按叙事短片或写实电影路线推进，细节按需读取 `references/`。视频默认 Seedance 2.5、480p、开启音频；用户明确指定的模型、画质和音频参数优先。
+公开技能为 `creatly-canvas`：读取和修改画布、上传本地素材、管理主体、配置生成、估价并查询真实结果。用户提供内容和执行范围，本技能负责落实到画布；不包含内部电影制作方法、创作案例、提示词模板或质量检查脚本。基础画布操作无需安装私有技能。
+
+从 0.2.14 起，公开插件使用 `$creatly-canvas`，原 `film-skill` 不再随公开包提供。已有内部电影技能可单独保留；插件名、MCP 名和同环境 OAuth 地址保持稳定，正常升级无需重新添加连接。
+
+图片默认 Sunburst 2K；视频默认 Seedance 2.5、480p、开启音频。用户明确指定优先，能力以实时模型目录为准，不因默认值改变重生成已有节点。
 
 配置使用标准 HTTP MCP，由宿主管理 OAuth 授权与令牌刷新，不打包凭据。通过实时 `tools/list` 获取工具及 Schema，具体见 [执行协议]({protocol})。工具能力取决于对应环境的后端部署；插件升级不等于后端已发布，也不代表已完成付费生成验收。
 
@@ -185,7 +205,7 @@ claude mcp add --transport http {server} {endpoint}
 
 ## 维护环境版本
 
-同一个代码库共用 `skills/film-skill`、执行协议和后端 MCP，客户端使用各自的 JSON 配置。`dev`、`test`、`main` 分支分别对应开发、测试、生产环境；每个分支都包含三种客户端的适配。
+同一个代码库共用 `skills/creatly-canvas`、执行协议和后端 MCP，客户端使用各自的 JSON 配置。`dev`、`test`、`main` 分支分别对应开发、测试、生产环境；每个分支都包含三种客户端的适配。
 
 拉取对应分支后，默认同步全部客户端配置：
 
@@ -209,6 +229,8 @@ python3 scripts/configure-environment.py {branch} --client workbuddy
 
 导出目录保留该客户端的 marketplace 和一份共享技能、文档与脚本。WorkBuddy 采用已有 CodeBuddy 适配配置，完整安装和 OAuth 仍需在实际客户端验收。`--client all --output <目录>` 可以导出通用安装包。相同输出可重复导出；内容变化时请选择新的或空的目录，避免覆盖已有文件。旧参数 `production` 继续作为 `main` 的别名。
 
+公开安装包使用明确的文件清单导出，不递归打包未知技能、参考文档、内部脚本或 ZIP。私有材料保存于仓库外；不要把它们提交到公开 Git 分支、历史、标签或发布附件。更新清单时先审查文件内容。旧版本和已经下载的副本不会因后续拆分消失。
+
 账号面板与凭据保存由各客户端管理；OpenAI 的应用 ID 仅用于 Codex 配置。每个客户端首次使用分别授权，后续按宿主能力自动续期。
 
 '''
@@ -231,15 +253,23 @@ def export_package(root, environment, client, output, openai_app_id=None):
 
     with tempfile.TemporaryDirectory(prefix='creatly-package-') as temp:
         staged = Path(temp)
-        ignore = shutil.ignore_patterns('__pycache__', '*.pyc', 'node_modules', '.env', '*.token')
         plugin = staged / 'plugins/creatly-video-director'
-        # Release packages use the remote MCP; historical local bridge binaries are unnecessary.
-        shutil.copytree(root / 'plugins/creatly-video-director', plugin,
-                        ignore=shutil.ignore_patterns('mcp', '__pycache__', '*.pyc', 'node_modules', '.env', '*.token'))
-        for directory in ['.agents', '.claude-plugin', '.codebuddy-plugin', 'config']:
-            source = root / directory
+        for relative in PUBLIC_PLUGIN_FILES:
+            source = root / 'plugins/creatly-video-director' / relative
+            if source.is_symlink() or not source.resolve().is_relative_to(root):
+                raise ValueError(f'Public package source must be a regular repository file: {relative}')
+            target = plugin / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+        for relative in ['.agents/plugins/marketplace.json', '.claude-plugin/marketplace.json',
+                         '.codebuddy-plugin/marketplace.json', 'config/openai-apps.json']:
+            source = root / relative
             if source.exists():
-                shutil.copytree(source, staged / directory, ignore=ignore)
+                if source.is_symlink() or not source.resolve().is_relative_to(root):
+                    raise ValueError(f'Public package source must be a regular repository file: {relative}')
+                target = staged / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, target)
         shutil.copy(root / 'README.md', staged / 'README.md')
         configure(staged, environment, openai_app_id)
         selected = CLIENTS if client == 'all' else {client: CLIENTS[client]}
@@ -259,7 +289,7 @@ def export_package(root, environment, client, output, openai_app_id=None):
 
 源分支：`{branch}`；版本：`{version}`；MCP：`https://{domain}/api/agent/mcp/v2`。
 
-本目录是参数生成的安装包，技能来自同一份 `film-skill`。将本目录作为对应客户端的本地 marketplace 导入；完整使用说明见 [README](README.md)。WorkBuddy 的完整安装及 OAuth 尚需实测。
+本目录是参数生成的公开安装包，技能来自同一份 `creatly-canvas`，不包含私有电影制作方法。将本目录作为对应客户端的本地 marketplace 导入；完整使用说明见 [README](README.md)。WorkBuddy 的完整安装及 OAuth 尚需实测。
 
 包含的客户端配置：
 

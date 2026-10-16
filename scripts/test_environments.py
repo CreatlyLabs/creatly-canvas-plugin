@@ -183,10 +183,10 @@ class ClientPackagesTest(unittest.TestCase):
                                 self.assertEqual((plugin / mcp_file).exists(), selected)
                                 if selected:
                                     self.assertEqual(json.loads((plugin / mcp_file).read_text()), {'mcpServers': expected})
-                        self.assertEqual((plugin / 'skills/film-skill/SKILL.md').read_bytes(),
-                                         (root / 'plugins/creatly-video-director/skills/film-skill/SKILL.md').read_bytes())
+                        self.assertEqual((plugin / 'skills/creatly-canvas/SKILL.md').read_bytes(),
+                                         (root / 'plugins/creatly-video-director/skills/creatly-canvas/SKILL.md').read_bytes())
                         self.assertIn(expected['yuanji']['url'],
-                                      (plugin / 'skills/film-skill/references/mcp-execution.md').read_text())
+                                      (plugin / 'skills/creatly-canvas/references/mcp-execution.md').read_text())
                         self.assertIn(f'源分支：`{branch}`', (output / 'INSTALL.md').read_text())
                         self.assertFalse((plugin / 'mcp').exists())
                         self.assertFalse((output / 'config').exists())
@@ -217,6 +217,45 @@ class ClientPackagesTest(unittest.TestCase):
             module.export_package(root, 'dev', 'codex', parent / 'dev-codex')
             self.assertFalse((parent / 'dev-codex/plugins/creatly-video-director/.app.json').exists())
             self.assertEqual(self.snapshot(root), original)
+
+    def test_export_excludes_unreviewed_internal_material(self):
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            root = self.copy_source(parent / 'source')
+            plugin = root / 'plugins/creatly-video-director'
+            marker = b'private-method-fixture-not-for-release'
+            for relative in ['skills/film-skill/SKILL.md',
+                             'skills/creatly-canvas/references/internal-methods.md',
+                             'scripts/film_gate_check.py', 'docs/internal-methods.md',
+                             'private-methods.zip']:
+                path = plugin / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(marker)
+            (root / 'config/internal-methods.md').write_bytes(marker)
+            original = self.snapshot(root)
+            for client in [*module.CLIENTS, 'all']:
+                output = parent / client
+                module.export_package(root, 'test', client, output)
+                public_plugin = output / 'plugins/creatly-video-director'
+                self.assertEqual({p.name for p in (public_plugin / 'skills').iterdir()}, {'creatly-canvas'})
+                self.assertFalse((public_plugin / 'scripts/film_gate_check.py').exists())
+                self.assertFalse((public_plugin / 'skills/creatly-canvas/references/internal-methods.md').exists())
+                self.assertTrue(all(marker not in data for data in self.snapshot(output).values()))
+            self.assertEqual(self.snapshot(root), original)
+
+    def test_export_rejects_symlinked_public_file(self):
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            root = self.copy_source(parent / 'source')
+            secret = parent / 'internal-methods.md'
+            secret.write_text('private-method-fixture-not-for-release')
+            source = root / 'plugins/creatly-video-director/scripts/upload_file.py'
+            source.unlink()
+            source.symlink_to(secret)
+            output = parent / 'export'
+            with self.assertRaisesRegex(ValueError, 'regular repository file'):
+                module.export_package(root, 'test', 'codex', output)
+            self.assertFalse(output.exists())
 
     def test_export_refuses_source_paths_and_preserves_existing_files(self):
         with tempfile.TemporaryDirectory() as temp:

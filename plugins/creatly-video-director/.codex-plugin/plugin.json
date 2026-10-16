@@ -1,23 +1,23 @@
 {
   "name": "creatly-video-director",
-  "version": "0.2.13",
-  "description": "Create and revise short films on the Creatly canvas.",
+  "version": "0.2.14",
+  "description": "Operate the Creatly canvas, upload assets, and manage media generation through remote MCP.",
   "author": {
     "name": "Creatly",
     "url": "https://yuanji.studio"
   },
   "homepage": "https://yuanji.studio",
   "keywords": [
-    "film",
-    "video",
-    "storyboard",
+    "canvas",
+    "media",
+    "upload",
     "mcp"
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "Creatly Video Director",
-    "shortDescription": "剧本、分镜、运镜到画布成片的一体化电影创作",
-    "longDescription": "Plan scripts and storyboards, create canvas nodes, generate media with explicit payment confirmation, and assemble a final preview through the Creatly MCP server.",
+    "displayName": "Creatly Canvas",
+    "shortDescription": "读取与修改画布、上传素材、管理主体和媒体生成",
+    "longDescription": "Read and update canvas nodes, upload local media, manage subjects, and submit authorized generation through the Creatly remote MCP server.",
     "developerName": "Creatly",
     "category": "Creative Tools",
     "capabilities": [
@@ -28,8 +28,8 @@
     "websiteURL": "https://yuanji.studio",
     "brandColor": "#E5484D",
     "defaultPrompt": [
-      "使用 $film-skill 把这个故事做成短片，先明确本轮交付范围。",
-      "使用 $film-skill 按写实电影路线制作，保持角色、场景和镜头连贯。"
+      "使用 $creatly-canvas 找到我的项目，查看节点目录。",
+      "使用 $creatly-canvas 上传这些素材并按我的要求放到画布。"
     ]
   },
   "mcpServers": "./.mcp.json"
