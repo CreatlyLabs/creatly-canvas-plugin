@@ -1,0 +1,30 @@
+# 节点、主体与素材
+
+## 写入和分组
+
+createNode/updateNode 只传实时 Schema 开放的字段。根据当前回执提供 idempotencyKey、expectedNodeStates、expectedSourceFiles 或实际要求的校验字段，不能凭空构造摘要。相同操作复用原幂等键，参数或范围改变时按工具契约处理。生成中的节点先查询原任务，避免覆盖正在执行的输入。
+
+`type="text"` 的 content 是直接展示的正文，不是要执行的生成提示词。创建后读回正文；不为显示文字调用 generateNodes。若旧服务只保存到 prompt，报告部署差异，不用付费文本生成弥补。
+
+parentNode 表示容器嵌套，parentIds 表示输入依赖：给 B 设置 parentIds=[A的ID] 形成 A → B。parentIds 替换完整列表；追加时保留原 ID，[] 才是清空。分组的子节点 position 相对容器，组本身使用其父级坐标；组尺寸按实际子节点边界写 dimensions。整理布局保留正文、素材、依赖和参数，只修改用户指定范围。
+
+删除使用 deleteNodes。先取得目标 deletion 摘要，按实时 Schema 传 expectedDeletions 等要求；执行用户明确授权的范围，重试保持原参数与幂等键。创建、修改、移动和删除后回读核对实际结果。
+
+## 正式主体
+
+普通 `type="element"` 容器不等于主体库记录。正式主体用 createSubject；先查已有主体避免重复。当前必填 projectId、idempotencyKey、kind、label；kind 为 character/scene，scene 还需要 sceneDescription。道具和自定义分类通过 scene 的 subjectType/subjectTypeId 选择，不自行传 kind=prop/custom。
+
+保存返回的 elementId、subjectNodeId、generationNodeIds 和 assetTaskPlans，各自用途不互换。按用户要求创建基础形象或其他计划；基础三视图字段为 threeView，旧 triView 别名和 look 等字段是否可用只看实时定义。三视图计划需要真实基础形象绑定，文字写“沿用已有图”不等于传入图像。建档和图片生成分别核对；待生成时不重建主体。
+
+引用优先使用读取结果的 mentionToken；只返回 mentionId 时按工具说明组成 token，重名不靠裸名称猜。先确认应用节点关联有效 elementId，主体 assets 中有实际文件。当前 v2 写入不接受 generationParams.elementBindings：在 content 中使用真实 token，让服务端解析后读回检查。读取结果包含的 referenceMode、selectedAssetIds 等字段不自动成为可写参数。
+
+“正式主体不存在或已删除”时核对项目、应用节点、elementId、主体记录与媒体；空关联容器不是有效主体，不通过换 ID、改数据库或重复付费生成排错。
+
+## 上传文件的两种用途
+
+- **节点自身媒体**：createNode 新建时传 fileRef:{id:真实文件ID}；图片 type=frame、视频 type=video、音频 type=audio，content 可省略。updateNode 可替换目标当前文件。fileRef 只传 id，核对文件类型与节点类型一致；挂载本身不调用生成。旧服务可能只允许 audio，以实时 Schema 为准。
+- **生成输入参考**：按目标模型要求放入 generationParams.referenceResources；仅放入参考列表或建立连线，不会把它显示成节点自身文件。
+
+referenceResources 的媒体类型与用途必须相容：图片 IMAGE/REFERENCE，视频 VIDEO/SOURCE_VIDEO，音频 AUDIO/SOURCE_AUDIO；图片首尾帧按实时 Schema 使用 FIRST_FRAME/LAST_FRAME。不能把 VIDEO/REFERENCE 写成合法视频引用。多图 referenceImg 与首尾帧 keyframe 模式分别核对，不混用槽位。保留用户指定的顺序与其他素材，不按固定创作模板增加或删除引用。
+
+资源来自 fileRef 直传且没有 sourceNodeId 时，不编造一个来源节点。挂载后用 getNodes 的 media 字段验证；字段尚未开放的旧部署才在相关 context 中检查 frameFiles/videoFiles/audioFiles。
