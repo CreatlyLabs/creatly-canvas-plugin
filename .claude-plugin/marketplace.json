@@ -1,7 +1,7 @@
 {
   "name": "creatly",
   "metadata": {
-    "description": "Official Creatly plugins for creative production workflows."
+    "description": "Official Creatly canvas integration."
   },
   "owner": {
     "name": "Creatly"
@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "creatly-video-director",
-      "description": "Create and revise short films on the Creatly canvas.",
-      "version": "0.2.13-dev",
+      "description": "Operate the Creatly canvas, upload assets, and manage media generation through remote MCP.",
+      "version": "0.2.14-dev",
       "author": {
         "name": "Creatly"
       },

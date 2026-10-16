@@ -15,14 +15,14 @@
 ## Codex 安装
 
 ```bash
-codex plugin marketplace add https://github.com/loushengtao/creatly-canvas-plugin.git --ref dev
+codex plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git --ref dev
 codex plugin add creatly-video-director@creatly
 ```
 
 ## Claude Code 安装
 
 ```text
-/plugin marketplace add https://github.com/loushengtao/creatly-canvas-plugin.git#dev
+/plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git#dev
 /plugin install creatly-video-director@creatly
 ```
 
@@ -45,7 +45,7 @@ codex plugin add creatly-video-director@creatly
 
 ## WorkBuddy
 
-下载 [dev 分支 ZIP](https://github.com/loushengtao/creatly-canvas-plugin/archive/refs/heads/dev.zip)，按宿主的本地 marketplace 安装流程导入。需要支持 HTTP MCP 与 OAuth；完整安装与授权流程尚未端到端验证。
+下载 [dev 分支 ZIP](https://github.com/CreatlyLabs/creatly-canvas-plugin/archive/refs/heads/dev.zip)，按宿主的本地 marketplace 安装流程导入。需要支持 HTTP MCP 与 OAuth；完整安装与授权流程尚未端到端验证。
 
 ## CLI / 手动 MCP 配置
 
@@ -71,17 +71,21 @@ claude mcp add --transport http creatly-dev https://dev.yuanji.studio/api/agent/
 
 手动 MCP 配置不包含插件创作技能；已通过插件连接时无需重复添加。
 
-## 创作与协议
+## 公开技能与协议
 
-技能统一为 `film-skill`：一个入口覆盖剧本、选角、分镜、运镜、视频提示词、画布执行和剪辑，按叙事短片或写实电影路线推进，细节按需读取 `references/`。视频默认 Seedance 2.5、480p、开启音频；用户明确指定的模型、画质和音频参数优先。
+公开技能为 `creatly-canvas`：读取和修改画布、上传本地素材、管理主体、配置生成、估价并查询真实结果。用户提供内容和执行范围，本技能负责落实到画布；不包含内部电影制作方法、创作案例、提示词模板或质量检查脚本。基础画布操作无需安装私有技能。
 
-配置使用标准 HTTP MCP，由宿主管理 OAuth 授权与令牌刷新，不打包凭据。通过实时 `tools/list` 获取工具及 Schema，具体见 [执行协议](plugins/creatly-video-director/skills/film-skill/references/mcp-execution.md)。工具能力取决于对应环境的后端部署；插件升级不等于后端已发布，也不代表已完成付费生成验收。
+从 0.2.14 起，公开插件使用 `$creatly-canvas`，原 `film-skill` 不再随公开包提供。已有内部电影技能可单独保留；插件名、MCP 名和同环境 OAuth 地址保持稳定，正常升级无需重新添加连接。
+
+图片默认 Sunburst 2K；视频默认 Seedance 2.5、480p、开启音频。用户明确指定优先，能力以实时模型目录为准，不因默认值改变重生成已有节点。
+
+配置使用标准 HTTP MCP，由宿主管理 OAuth 授权与令牌刷新，不打包凭据。通过实时 `tools/list` 获取工具及 Schema，具体见 [执行协议](plugins/creatly-video-director/skills/creatly-canvas/references/mcp-execution.md)。工具能力取决于对应环境的后端部署；插件升级不等于后端已发布，也不代表已完成付费生成验收。
 
 仓库中的旧 stdio 适配器仅为历史开发工具，本版本插件不加载它。
 
 ## 维护环境版本
 
-同一个代码库共用 `skills/film-skill`、执行协议和后端 MCP，客户端使用各自的 JSON 配置。`dev`、`test`、`main` 分支分别对应开发、测试、生产环境；每个分支都包含三种客户端的适配。
+同一个代码库共用 `skills/creatly-canvas`、执行协议和后端 MCP，客户端使用各自的 JSON 配置。`dev`、`test`、`main` 分支分别对应开发、测试、生产环境；每个分支都包含三种客户端的适配。
 
 拉取对应分支后，默认同步全部客户端配置：
 
@@ -105,18 +109,18 @@ python3 scripts/configure-environment.py dev --client workbuddy
 
 导出目录保留该客户端的 marketplace 和一份共享技能、文档与脚本。WorkBuddy 采用已有 CodeBuddy 适配配置，完整安装和 OAuth 仍需在实际客户端验收。`--client all --output <目录>` 可以导出通用安装包。相同输出可重复导出；内容变化时请选择新的或空的目录，避免覆盖已有文件。旧参数 `production` 继续作为 `main` 的别名。
 
+公开安装包使用明确的文件清单导出，不递归打包未知技能、参考文档、内部脚本或 ZIP。私有材料保存于仓库外；不要把它们提交到公开 Git 分支、历史、标签或发布附件。更新清单时先审查文件内容。旧版本和已经下载的副本不会因后续拆分消失。
+
 账号面板与凭据保存由各客户端管理；OpenAI 的应用 ID 仅用于 Codex 配置。每个客户端首次使用分别授权，后续按宿主能力自动续期。
+
+## 图片、视频、音频上传
+
+本地素材通过 upload prepare → 本机 HTTPS PUT → upload complete 登记。保留上传脚本与文件类型检查；详见 [上传脚本说明](plugins/creatly-video-director/scripts/README.md)。上传本身不提交生成、不扣除生成费用，工具可用性以对应后端实时目录为准。
+
+## 画布读取与写入
+
+未知节点先读 brief 目录，已知 ID 用 getNodes 精读必要字段。全画布 full 读取只用于确需完整快照的操作，不为局部修改反复分页拉取全部正文。主体、节点和文件 ID 分开使用；文件可挂到节点自身媒体，也可作为生成参考，两者用途不同。
 
 ## 生成确认
 
-每批图片或视频生成前，在对话中确认节点、模型、数量和预计积分；确认后直接提交，无需再到画布或网页确认费用。插件将确认金额作为 `generateNodes.maxCredits`，超出金额或需要失败重试时重新在对话中确认。需要部署支持该流程的后端；更新插件后开启新任务以刷新工具定义。OAuth 登录授权仍由宿主完成。
-
-## 0.2.0 精简工具目录
-
-当前工具包括 `listProjects`、`projectCreate`、`getCanvasContext`、`getCanvasOutline`、`getNodes`、`createNode`、`updateNode`、`deleteNodes`、`createSubject`、`upload`、`listGenerationModels`、`listSystemVoices`、`calculateCredits`、`generateNodes`、`getGenerationStatus`；能力以实时 `tools/list` 为准。
-
-`getCanvasContext` 新接口默认 brief，仅返回节点 ID、名称、类型、状态和关系；按 nextCursor 翻页（新版 brief 500、compact 20、full 5 个/页；brief 超过 256 KiB 时自动缩小页数）。已知 ID 直接用 `getNodes` 按 fields 精读；局部生成使用 batch 门禁，不遍历整张 full 画布。旧部署以实时 inputSchema 为准，尚无 brief 时使用 getCanvasOutline。主体列表按需读取 includeSubjects。`createSubject` 的 kind 为 character/scene；道具和自定义主体使用 scene 分支的 subjectType=prop/custom，自定义分类传真实 subjectTypeId。
-
-上传统一走 `upload`：`action="prepare"` 申请直传 → 本机上传原始字节 → `action="complete"` 登记。支持图片、视频、音频、文本（txt/md）；文本返回文件引用，需要在画布展示时再创建直接输入的文本节点。上传不自动发起生成。
-
-先部署对应后端，再升级插件并刷新宿主加载的工具定义，同一环境复用已有 OAuth 连接。旧后端不会因为安装插件自动获得新工具；实时 `tools/list` 才是能力依据。默认目录不再提供 Film DSL、浏览器交接、独立确认或 previewAssemble。
+先核对用户要求、当前模型配置与真实报价，按已授权范围和预算提交并传入 maxCredits。未授权的新增支出在对话中确认；已批准的范围不重复询问。超时先查原任务，任务成功后再核对目标节点实际媒体，不重复扣费修复挂载问题。
