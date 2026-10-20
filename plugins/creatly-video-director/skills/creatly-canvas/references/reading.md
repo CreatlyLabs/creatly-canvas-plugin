@@ -27,3 +27,7 @@ full 每批最多 5 个节点，长正文通常一次只读一个。generationPa
 旧部署不支持 summary/generationSettings 时，以已开放的 details、content、generationParams、media 等字段精读；不要每次都读取所有 fields，也不为局部改动补全无关节点。
 
 主体详情通过 `getCanvasContext` 的 subjects 读取，按当前 Schema 的 subjectId/subjectQuery 定位。subjectTypes 是可用分类，elements 是正式主体资产；full 可返回 assets、fileRefList 和 referenceLayout。结果最多 100 个主体，目录未出现目标时先搜索或精读。elementId 是正式主体 ID；subjectNodeId 和分组中的 id 是画布节点，不能互换。
+
+## 给用户定位链接
+
+`getNodes`、`createNode`、`updateNode` 的节点结果可含 `nodeUrl`；生成受理和状态回执另有 `nodeLinks`。已拿到链接就直接交付，不为得到链接重复读取整张画布。只有目标节点没有定位回执时，按该节点 ID 读取一次 `getNodes(detail="brief")`。保留服务端返回的地址、查询参数和环境，不把 MCP 明文 ID 替换进网页密文 ID。链接沿用网站登录与项目权限，不能当作免登录授权。
