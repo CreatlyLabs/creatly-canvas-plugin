@@ -13,6 +13,7 @@ description: 通过元极（Creatly）远程 MCP 操作画布、上传素材、�
 | --- | --- |
 | 连接、授权、工具参数不可见或调用失败 | [连接与执行协议](references/mcp-execution.md) |
 | 定位项目和节点、按字段读取 | [画布读取](references/reading.md) |
+| 执行画布任务时打开、复用或重新打开右侧预览 | [画布预览](references/canvas-preview.md) |
 | 创建或修改节点、分组、主体及引用 | [节点与素材](references/nodes-and-subjects.md) |
 | 依已有参考图制作人物横版四视图 | [四视图模板](references/character-four-view.md) |
 | 模型选择、估价、提交和查询 | [媒体生成](references/generation.md) |
@@ -21,6 +22,7 @@ description: 通过元极（Creatly）远程 MCP 操作画布、上传素材、�
 ## 执行原则
 
 - 使用插件已连接的 `yuanji` MCP；实时工具定义和模型目录决定可用能力，不用文档清单替代连接验证。
+- 每次实际执行画布任务，确定目标项目后默认在右侧打开画布；先检查当前预览，同一画布已打开就复用，用户关闭后在下次触发时重新打开。不把“以前打开过”当作当前仍打开，不在后台轮询中重复打开。按[画布预览](references/canvas-preview.md)使用宿主实际能力；用户明确不打开时从其要求。
 - 项目、节点、主体、文件和任务 ID 原样使用真实回执；不互换、不转成 JavaScript Number、不从画布 URL 推算。
 - 先读简要目录，再按 ID 读取必要字段。同一版本、同一范围的回执复用，不为修改少量节点遍历全画布详情。
 - 参数按实时 Schema 平铺传递。版本校验、删除摘要、源文件和幂等键等字段取自当前回执；冲突时先重读。
