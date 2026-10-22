@@ -16,7 +16,7 @@ parentNode 表示容器嵌套，parentIds 表示输入依赖：给 B 设置 pare
 
 普通 `type="element"` 容器不等于主体库记录。正式主体用 createSubject；先查已有主体避免重复。当前必填 projectId、idempotencyKey、kind、label；kind 为 character/scene，scene 还需要 sceneDescription。道具和自定义分类通过 scene 的 subjectType/subjectTypeId 选择，不自行传 kind=prop/custom。
 
-保存返回的 elementId、subjectNodeId、generationNodeIds 和 assetTaskPlans，各自用途不互换。按用户要求创建基础形象或其他计划；基础三视图字段为 threeView，旧 triView 别名和 look 等字段是否可用只看实时定义。三视图计划需要真实基础形象绑定，文字写“沿用已有图”不等于传入图像。建档和图片生成分别核对；待生成时不重建主体。
+保存返回的 elementId、subjectNodeId、generationNodeIds 和 assetTaskPlans，各自用途不互换。按用户要求创建基础形象或其他计划；基础三视图字段为 threeView，旧 triView 别名和 look 等字段是否可用只看实时定义。三视图计划需要真实基础形象绑定，文字写“沿用已有图”不等于传入图像。用户要求横版四视图时，使用[近景＋全身三视图模板](character-four-view.md)，仍按当前 Schema 的图像节点或资产计划写入，不新增 fourView 字段。建档和图片生成分别核对；待生成时不重建主体。
 
 引用优先使用读取结果的 mentionToken；只返回 mentionId 时按工具说明组成 token，重名不靠裸名称猜。先确认应用节点关联有效 elementId，主体 assets 中有实际文件。当前 v2 写入不接受 generationParams.elementBindings：在 content 中使用真实 token，让服务端解析后读回检查。读取结果包含的 referenceMode、selectedAssetIds 等字段不自动成为可写参数。
 

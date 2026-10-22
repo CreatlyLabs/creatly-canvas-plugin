@@ -81,7 +81,7 @@ claude mcp add --transport http creatly-test https://test.yuanji.studio/api/agen
 
 ## 公开技能与协议
 
-公开技能为 `creatly-canvas`：读取和修改画布、上传本地素材、管理主体、配置生成、估价并查询真实结果。用户提供内容和执行范围，本技能负责落实到画布；不包含内部电影制作方法、创作案例、提示词模板或质量检查脚本。基础画布操作无需安装私有技能。
+公开技能为 `creatly-canvas`：读取和修改画布、上传本地素材、管理主体、配置生成、估价并查询真实结果。用户提供内容和执行范围，本技能负责落实到画布；同时提供[人物横版四视图模板](plugins/creatly-video-director/skills/creatly-canvas/references/character-four-view.md)，以正脸近景和全身正/侧/背视图保留人物细节。其余内部电影制作方法、创作案例和质量检查脚本不随包提供。基础画布操作无需安装私有技能。
 
 从 0.2.14 起，公开插件使用 `$creatly-canvas`，原 `film-skill` 不再随公开包提供。已有内部电影技能可单独保留；插件名、MCP 名和同环境 OAuth 地址保持稳定，正常升级无需重新添加连接。
 

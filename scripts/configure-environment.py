@@ -8,9 +8,9 @@ import tempfile
 from pathlib import Path
 
 ENVIRONMENTS = {
-    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.18-dev'),
-    'test': ('test', 'test.yuanji.studio', '测试', '0.2.18-test'),
-    'production': ('main', 'yuanji.studio', '生产', '0.2.18'),
+    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.19-dev'),
+    'test': ('test', 'test.yuanji.studio', '测试', '0.2.19-test'),
+    'production': ('main', 'yuanji.studio', '生产', '0.2.19'),
 }
 
 # Keep the host's OAuth credential identity stable when releasing a new plugin version.
@@ -23,7 +23,7 @@ CLIENTS = {
     'workbuddy': ('.codebuddy-plugin', '.codebuddy-plugin', None),
 }
 
-# Only explicitly reviewed operational files belong in a public client package.
+# Only explicitly reviewed public files belong in a client package.
 # Do not recursively copy skill/reference folders: an internal file added beside
 # these sources must never silently become part of every client download.
 PUBLIC_PLUGIN_FILES = (
@@ -35,6 +35,7 @@ PUBLIC_PLUGIN_FILES = (
     'skills/creatly-canvas/references/mcp-execution.md',
     'skills/creatly-canvas/references/reading.md',
     'skills/creatly-canvas/references/nodes-and-subjects.md',
+    'skills/creatly-canvas/references/character-four-view.md',
     'skills/creatly-canvas/references/generation.md',
     'skills/creatly-canvas/references/uploads.md',
 )
@@ -116,8 +117,10 @@ def configure(root, environment, openai_app_id=None):
         tail = old[old.index('## 图片、视频、音频上传'):] if '## 图片、视频、音频上传' in old else old[old.index('## 生成确认'):]
         protocol = 'skills/creatly-canvas/references/mcp-execution.md'
         connection_guide = 'docs/oauth-connection.md'
+        four_view_guide = 'skills/creatly-canvas/references/character-four-view.md'
         if path == root / 'README.md': protocol = 'plugins/creatly-video-director/' + protocol
         if path == root / 'README.md': connection_guide = 'plugins/creatly-video-director/' + connection_guide
+        if path == root / 'README.md': four_view_guide = 'plugins/creatly-video-director/' + four_view_guide
         header = f'''# Creatly Canvas Plugin · {label}环境
 
 本分支 `{branch}` 通过远程 MCP 连接 [{domain}]({site}/)，无需启动本地画布服务。
@@ -201,7 +204,7 @@ claude mcp add --transport http {server} {endpoint}
 
 ## 公开技能与协议
 
-公开技能为 `creatly-canvas`：读取和修改画布、上传本地素材、管理主体、配置生成、估价并查询真实结果。用户提供内容和执行范围，本技能负责落实到画布；不包含内部电影制作方法、创作案例、提示词模板或质量检查脚本。基础画布操作无需安装私有技能。
+公开技能为 `creatly-canvas`：读取和修改画布、上传本地素材、管理主体、配置生成、估价并查询真实结果。用户提供内容和执行范围，本技能负责落实到画布；同时提供[人物横版四视图模板]({four_view_guide})，以正脸近景和全身正/侧/背视图保留人物细节。其余内部电影制作方法、创作案例和质量检查脚本不随包提供。基础画布操作无需安装私有技能。
 
 从 0.2.14 起，公开插件使用 `$creatly-canvas`，原 `film-skill` 不再随公开包提供。已有内部电影技能可单独保留；插件名、MCP 名和同环境 OAuth 地址保持稳定，正常升级无需重新添加连接。
 
