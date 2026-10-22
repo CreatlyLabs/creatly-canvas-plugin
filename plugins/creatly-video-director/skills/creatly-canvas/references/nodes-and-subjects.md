@@ -4,6 +4,8 @@
 
 createNode/updateNode 只传实时 Schema 开放的字段。根据当前回执提供 idempotencyKey、expectedNodeStates、expectedSourceFiles 或实际要求的校验字段，不能凭空构造摘要。相同操作复用原幂等键，参数或范围改变时按工具契约处理。生成中的节点先查询原任务，避免覆盖正在执行的输入。
 
+自定义显示名使用实时 Schema 的名称字段（当前为 label），不把提示词、content 或本地文件名当作已保存的标题。用户指定分组时，parentNode 传实际分组 ID；parentIds 不决定分组归属。写入后从回执或按目标 ID 的 getNodes 回读核对 label 与 parentNode；标题仍是「视频」等默认值或分组未保存时，说明或修正实际差异后再交付，不声称已正确命名、归组。
+
 `type="text"` 的 content 是直接展示的正文，不是要执行的生成提示词。创建后读回正文；不为显示文字调用 generateNodes。若旧服务只保存到 prompt，报告部署差异，不用付费文本生成弥补。
 
 parentNode 表示容器嵌套，parentIds 表示输入依赖：给 B 设置 parentIds=[A的ID] 形成 A → B。parentIds 替换完整列表；追加时保留原 ID，[] 才是清空。分组的子节点 position 相对容器，组本身使用其父级坐标；组尺寸按实际子节点边界写 dimensions。整理布局保留正文、素材、依赖和参数，只修改用户指定范围。
