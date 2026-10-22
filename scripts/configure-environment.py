@@ -8,9 +8,9 @@ import tempfile
 from pathlib import Path
 
 ENVIRONMENTS = {
-    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.21-dev'),
-    'test': ('test', 'test.yuanji.studio', '测试', '0.2.21-test'),
-    'production': ('main', 'yuanji.studio', '生产', '0.2.21'),
+    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.22-dev'),
+    'test': ('test', 'test.yuanji.studio', '测试', '0.2.22-test'),
+    'production': ('main', 'yuanji.studio', '生产', '0.2.22'),
 }
 
 # Keep the host's OAuth credential identity stable when releasing a new plugin version.
@@ -36,6 +36,7 @@ PUBLIC_PLUGIN_FILES = (
     'skills/creatly-canvas/references/reading.md',
     'skills/creatly-canvas/references/canvas-preview.md',
     'skills/creatly-canvas/references/nodes-and-subjects.md',
+    'skills/creatly-canvas/references/layout.md',
     'skills/creatly-canvas/references/character-four-view.md',
     'skills/creatly-canvas/references/generation.md',
     'skills/creatly-canvas/references/uploads.md',

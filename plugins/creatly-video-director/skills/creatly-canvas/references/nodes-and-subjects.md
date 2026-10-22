@@ -8,7 +8,7 @@ createNode/updateNode 只传实时 Schema 开放的字段。根据当前回执�
 
 `type="text"` 的 content 是直接展示的正文，不是要执行的生成提示词。创建后读回正文；不为显示文字调用 generateNodes。若旧服务只保存到 prompt，报告部署差异，不用付费文本生成弥补。
 
-parentNode 表示容器嵌套，parentIds 表示输入依赖：给 B 设置 parentIds=[A的ID] 形成 A → B。parentIds 替换完整列表；追加时保留原 ID，[] 才是清空。分组的子节点 position 相对容器，组本身使用其父级坐标；组尺寸按实际子节点边界写 dimensions。整理布局保留正文、素材、依赖和参数，只修改用户指定范围。
+parentNode 表示容器嵌套，parentIds 表示输入依赖：给 B 设置 parentIds=[A的ID] 形成 A → B。parentIds 替换完整列表；追加时保留原 ID，[] 才是清空。分组的子节点 position 相对容器，组本身使用其父级坐标；组尺寸按实际子节点边界写 dimensions。整理布局保留正文、素材、依赖和参数，只修改用户指定范围。新建批次和整理布局先按[二维紧凑排版](layout.md)规划节点及分组边界，优先让整体宽高接近，不能只固定 x 不断增加 y，或只固定 y 不断增加 x。
 
 删除使用 deleteNodes。先取得目标 deletion 摘要，按实时 Schema 传 expectedDeletions 等要求；执行用户明确授权的范围，重试保持原参数与幂等键。创建、修改、移动和删除后回读核对实际结果。
 
