@@ -1,6 +1,6 @@
 # WorkBuddy 工具使用说明
 
-先在连接器中完成元极网站 OAuth。账户与空间由授权绑定，用 listProjects/getProfile 回执核对，不向用户索取密码、令牌或重复填写空间。通过当前连接发现工具定义，以下为功能索引；不同环境部署可能不同，只调用已暴露的工具和字段。
+先在连接器中完成 Creatly 网站 OAuth。账户与空间由授权绑定，用 listProjects/getProfile 回执核对，不向用户索取密码、令牌或重复填写空间。通过当前连接发现工具定义，以下为功能索引；不同环境部署可能不同，只调用已暴露的工具和字段。
 
 | 工作 | 工具及关键输入 |
 | --- | --- |
@@ -9,8 +9,8 @@
 | 节点精读 | getNodes：projectId、nodeIds 或已开放的外部键；brief 概要，full 按 fields 取正文、参数或媒体 |
 | 创建和修改 | createNode/updateNode：projectId、nodes 及 Schema 要求的幂等键、当前观察摘要；节点类型和 ID 不互换 |
 | 删除 | deleteNodes：只执行用户指定范围，先读取 deletion，传真实删除观察摘要 |
-| 主体分类与建档 | listSubjectTypes、resolveElements、createSubject；保存 elementId 与应用节点 ID 的区别 |
-| 主体素材与引用 | createSubjectAssetPlan、addCanvasAssetsToElement、setNodeSubjectReferences、getSubjectReferenceLayout、updateSubjectReferenceLayout；仅在当前部署开放时使用 |
+| 主体分类与建档 | 仅用户明确要求创建主体时使用 listSubjectTypes、resolveElements、createSubject；普通人物或物品图片使用图片节点 |
+| 主体素材与引用 | 用户明确要求使用已有主体或创建主体时，按需使用主体工具；不得为普通图片自动建档 |
 | 上传 | upload action=prepare/complete：先登记文件元信息，本机直传，再 complete 获取 fileRef；不能只发送本地路径 |
 | 模型及音色 | listGenerationModels 先 detail=compact 定位，再 modelIds + full；listSystemVoices 查询可用音色，不猜模型或音色 ID |
 | 费用和生成 | calculateCredits 取得报价，核对用户已授权范围和预算，generateNodes 使用真实节点、预算上限及稳定幂等键 |

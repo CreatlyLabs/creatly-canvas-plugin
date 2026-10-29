@@ -98,17 +98,17 @@ def package_connector(root, environment, output):
         public = marketplace / 'plugins/creatly-video-director'
         staged = temp / 'connector'
         staged.mkdir()
-        title = '元极 Creatly 画布' + (f' · {label}' if branch != 'main' else '')
+        title = 'Creatly 画布' + (f' · {label}' if branch != 'main' else '')
         english = 'Creatly Canvas' + (f' ({branch})' if branch != 'main' else '')
-        chinese_description = '连接元极画布，读取和修改项目节点、上传素材、管理主体，并按授权提交图片或视频生成及查询结果。'
+        chinese_description = '连接 Creatly 画布，读取和修改项目节点、上传素材、按需管理主体，并按授权提交图片或视频生成及查询结果。'
         english_description = 'Read and update Creatly canvas projects, upload assets, manage subjects, and submit authorized media generation.'
         metadata = {
             'name': title, 'name_zh': title, 'name_en': english,
             'description': chinese_description, 'description_zh': chinese_description,
             'description_en': english_description, 'source': source, 'type': 'mcp',
             'version': version, 'minWorkbuddyVersion': '4.24.0',
-            'examples_zh': ['列出我在元极中的项目，并查看指定画布的节点目录。',
-                            '把我提供的图片上传到元极画布，创建图片节点，不提交生成。',
+            'examples_zh': ['列出我在 Creatly 中的项目，并查看指定画布的节点目录。',
+                            '把我提供的图片上传到 Creatly 画布，创建图片节点，不提交生成。',
                             '查看这个视频节点的模型和分辨率，估算生成费用，先不要提交。'],
             'examples_en': ['List my Creatly projects and show the selected canvas node directory.',
                             'Upload my image and create an image node without generating media.',

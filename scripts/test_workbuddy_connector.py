@@ -51,6 +51,12 @@ class WorkBuddyConnectorTest(unittest.TestCase):
                     self.assertIn('description_zh:', skill)
                     self.assertIn('description_en:', skill)
                     self.assertIn('author: "Creatly"', skill)
+                    self.assertIn('只有用户明确要求', skill)
+                    self.assertIn('不因此新建主体', skill)
+                    self.assertTrue(metadata['name_zh'].startswith('Creatly '))
+                    for path in output.rglob('*'):
+                        if path.is_file() and path.suffix in {'.md', '.json', '.yaml'}:
+                            self.assertNotIn('\u5143\u6781', path.read_text(), str(path))
                     self.assertIn(f'https://{domain}/api/agent/mcp/v2',
                                   (output / 'skills/creatly-canvas/references/mcp-execution.md').read_text())
                     with zipfile.ZipFile(archive) as z:

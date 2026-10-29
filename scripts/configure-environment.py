@@ -9,7 +9,7 @@ from pathlib import Path
 
 ENVIRONMENTS = {
     'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.22-dev'),
-    'test': ('test', 'test.yuanji.studio', '测试', '0.2.22-test'),
+    'test': ('test', 'test.yuanji.studio', '测试', '0.2.23-test'),
     'production': ('main', 'yuanji.studio', '生产', '0.2.22'),
 }
 
@@ -155,7 +155,7 @@ codex plugin add creatly-video-director@creatly
 
 ## 一次授权与自动续期
 
-- 元极采用标准 OAuth：访问令牌默认 30 分钟，刷新令牌默认 30 天；成功刷新会返回新的访问令牌和刷新令牌，由宿主安全保存。30 天指刷新令牌有效期，不是让一个访问令牌使用 30 天；实际有效期以服务端签发结果为准。
+- Creatly 采用标准 OAuth：访问令牌默认 30 分钟，刷新令牌默认 30 天；成功刷新会返回新的访问令牌和刷新令牌，由宿主安全保存。30 天指刷新令牌有效期，不是让一个访问令牌使用 30 天；实际有效期以服务端签发结果为准。
 - 同一环境更新时保持插件名 `creatly-video-director`、MCP 名 `yuanji` 和 MCP 地址稳定。通过宿主的更新流程升级，不为日常更新卸载重装、登出或重复添加手动 MCP。
 - 正常续期不需要浏览器、保持画布打开或重新输入密码。撤销授权、刷新令牌到期、凭据丢失或切换环境后，才按宿主提示重新连接。网站登录与插件授权是两套凭据。
 - 403 是资源权限问题；429、5xx 和连接超时是请求问题。不要因此清除授权或反复登录。`invalid_client` 表示客户端注册/认证异常，`invalid_grant` 表示刷新凭据异常，应先诊断具体原因。
@@ -164,7 +164,7 @@ codex plugin add creatly-video-director@creatly
 
 ## Codex 已连接账户面板
 
-{'本环境已关联平台注册的元极应用。安装后在插件设置中连接账户；账户名称由后端的 `getProfile` 返回，面板由平台展示。' if registered_app_id else '本环境尚未填写平台注册的元极应用 ID，因此当前安装包仍通过 MCP 连接管理授权，尚不显示平台账户面板。'}
+{'本环境已关联平台注册的 Creatly 应用。安装后在插件设置中连接账户；账户名称由后端的 `getProfile` 返回，面板由平台展示。' if registered_app_id else '本环境尚未填写平台注册的 Creatly 应用 ID，因此当前安装包仍通过 MCP 连接管理授权，尚不显示平台账户面板。'}
 
 维护者在平台创建对应环境的自定义 MCP 插件后，将实际应用 ID 写入 `config/openai-apps.json`；详细步骤见 [账号连接与续期]({connection_guide})。平台注册、后端部署和真实账户连接均完成后才算面板验收通过。三个环境使用各自的应用 ID，升级时保留已有映射。
 

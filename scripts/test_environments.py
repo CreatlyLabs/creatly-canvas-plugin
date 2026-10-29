@@ -188,6 +188,13 @@ class ClientPackagesTest(unittest.TestCase):
                         self.assertIn(expected['yuanji']['url'],
                                       (plugin / 'skills/creatly-canvas/references/mcp-execution.md').read_text())
                         self.assertIn(f'源分支：`{branch}`', (output / 'INSTALL.md').read_text())
+                        skill_text = (plugin / 'skills/creatly-canvas/SKILL.md').read_text()
+                        self.assertIn('默认将人物、角色、场景、物品或道具', skill_text)
+                        self.assertIn('只有用户明确要求', skill_text)
+                        self.assertIn('不因此新建主体', skill_text)
+                        for path in output.rglob('*'):
+                            if path.is_file() and path.suffix in {'.md', '.json', '.yaml'}:
+                                self.assertNotIn('\u5143\u6781', path.read_text(), str(path))
                         self.assertFalse((plugin / 'mcp').exists())
                         self.assertFalse((output / 'config').exists())
                         self.assertFalse(any(output.rglob('__pycache__')))

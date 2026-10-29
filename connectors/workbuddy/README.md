@@ -22,7 +22,7 @@ ZIP 根目录直接包含 connector-meta.json、mcp.json、icon.svg 和 skills/�
 `source` 是拟申请标识，能否使用需以平台审核为准。首次发布后保持标识稳定。正式市场使用 main 包，测试环境用于联调。
 使用中英文名称、描述及示例，声明最低 WorkBuddy 4.24.0；远程传输使用平台要求的 streamableHttp，单 Server、30 秒超时。
 不设置 auth_mode，使用 WorkBuddy 内置的标准 MCP OAuth，不打包令牌或要求填写长期 Token。
-图标复用网站 `venus-ailsc/public/logo-tab.svg` 的元极标识。
+图标复用网站 `venus-ailsc/public/logo-tab.svg` 的 Creatly 标识。
 
 ## 提交前联调
 
