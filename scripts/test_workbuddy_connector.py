@@ -16,7 +16,7 @@ spec.loader.exec_module(module)
 
 class WorkBuddyConnectorTest(unittest.TestCase):
     def source(self, destination):
-        files = ['plugins/creatly-video-director/' + name
+        files = ['plugins/creatly-canvas/' + name
                  for name in module.environment_config.PUBLIC_PLUGIN_FILES]
         files += ['README.md', '.agents/plugins/marketplace.json', '.claude-plugin/marketplace.json',
                   '.codebuddy-plugin/marketplace.json', 'config/openai-apps.json',
@@ -35,7 +35,7 @@ class WorkBuddyConnectorTest(unittest.TestCase):
             source = self.source(parent / 'source')
             original = module.snapshot(source)
             sources = set()
-            for branch, domain in [('main', 'yuanji.studio'), ('test', 'test.yuanji.studio'),
+            for branch, domain in [('main', 'creatly.cn'), ('test', 'test.yuanji.studio'),
                                    ('dev', 'dev.yuanji.studio')]:
                 with self.subTest(branch=branch):
                     output, archive = module.package_connector(source, branch, parent / branch / 'connector')
@@ -44,7 +44,7 @@ class WorkBuddyConnectorTest(unittest.TestCase):
                     self.assertEqual(metadata['minWorkbuddyVersion'], '4.24.0')
                     self.assertNotIn('auth_mode', metadata)
                     mcp = json.loads((output / 'mcp.json').read_text())
-                    self.assertEqual(mcp, {'mcpServers': {'yuanji': {
+                    self.assertEqual(mcp, {'mcpServers': {'creatly': {
                         'type': 'streamableHttp', 'url': f'https://{domain}/api/agent/mcp/v2', 'timeout': 30000}}})
                     skill = (output / 'skills/creatly-canvas/SKILL.md').read_text()
                     self.assertIn('@references/workbuddy-tools.md', skill)
@@ -80,7 +80,7 @@ class WorkBuddyConnectorTest(unittest.TestCase):
             marker = b'private-workflow-fixture-not-for-distribution'
             for relative in ['skills/film-skill/SKILL.md', 'skills/creatly-canvas/references/private-method.md',
                              'scripts/film_gate_check.py', 'private.zip']:
-                path = source / 'plugins/creatly-video-director' / relative
+                path = source / 'plugins/creatly-canvas' / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(marker)
             output, archive = module.package_connector(source, 'main', parent / 'connector')
@@ -117,7 +117,7 @@ class WorkBuddyConnectorTest(unittest.TestCase):
             output, archive = module.package_connector(source, 'main', parent / 'connector')
             mcp_file = output / 'mcp.json'
             data = json.loads(mcp_file.read_text())
-            data['mcpServers']['yuanji']['type'] = 'http'
+            data['mcpServers']['creatly']['type'] = 'http'
             mcp_file.write_text(json.dumps(data))
             with self.assertRaisesRegex(ValueError, 'transport'):
                 module.validate_connector(output)

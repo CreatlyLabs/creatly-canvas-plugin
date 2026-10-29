@@ -45,9 +45,9 @@ def validate_connector(directory):
     if metadata['type'] != 'mcp' or 'auth_mode' in metadata:
         raise ValueError('Use native MCP OAuth, not a token form or managed-auth mode.')
     mcp = json.loads((directory / 'mcp.json').read_text())
-    if set(mcp) != {'mcpServers'} or set(mcp['mcpServers']) != {'yuanji'}:
+    if set(mcp) != {'mcpServers'} or set(mcp['mcpServers']) != {'creatly'}:
         raise ValueError('Exactly one MCP server is required.')
-    server = mcp['mcpServers']['yuanji']
+    server = mcp['mcpServers']['creatly']
     valid_urls = {f'https://{domain}/api/agent/mcp/v2'
                   for _, domain, _, _ in environment_config.ENVIRONMENTS.values()}
     if (set(server) != {'type', 'url', 'timeout'} or server['type'] != 'streamableHttp'
@@ -95,7 +95,7 @@ def package_connector(root, environment, output):
         temp = Path(temp)
         # Reuse the reviewed public export, never copy the repository wholesale.
         marketplace = environment_config.export_package(root, environment, 'workbuddy', temp / 'marketplace')
-        public = marketplace / 'plugins/creatly-video-director'
+        public = marketplace / 'plugins/creatly-canvas'
         staged = temp / 'connector'
         staged.mkdir()
         title = 'Creatly 画布' + (f' · {label}' if branch != 'main' else '')
@@ -115,7 +115,7 @@ def package_connector(root, environment, output):
                             'Check this video node model and resolution, then estimate the cost without submitting.'],
         }
         (staged / 'connector-meta.json').write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + '\n')
-        (staged / 'mcp.json').write_text(json.dumps({'mcpServers': {'yuanji': {
+        (staged / 'mcp.json').write_text(json.dumps({'mcpServers': {'creatly': {
             'type': 'streamableHttp', 'url': f'https://{domain}/api/agent/mcp/v2', 'timeout': 30000,
         }}}, ensure_ascii=False, indent=2) + '\n')
         copy_file(root / 'connectors/workbuddy/icon.svg', staged / 'icon.svg', root)
@@ -137,7 +137,7 @@ def package_connector(root, environment, output):
             'description': chinese_description, 'description_zh': chinese_description,
             'description_en': english_description, 'version': version, 'author': 'Creatly',
         }
-        intro = ('在 WorkBuddy 中通过连接器自带的 yuanji MCP 操作；首次使用在连接器页面点击连接，'
+        intro = ('在 WorkBuddy 中通过连接器自带的 creatly MCP 操作；首次使用在连接器页面点击连接，'
                  '由宿主完成网站 OAuth，后续复用已有连接。工具说明和只读示例见 @references/workbuddy-tools.md。'
                  '本地上传脚本需要可用的 Python 3；没有本机执行或文件传输能力时说明限制，'
                  '其他远程画布操作仍可执行，不把本地路径当作已上传素材。\n\n')

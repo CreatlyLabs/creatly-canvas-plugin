@@ -21,7 +21,7 @@
 
 画布地址使用用户明确提供的目标链接，或当前工具回执中的 projectUrl/nodeUrl；不从明文 projectId 拼 workbench 路径，不为打开预览读取整份画布。没有地址时只读取取得目标项目链接所需的最小信息。
 
-优先调用宿主实际开放的内置网页预览、标签复用和右侧显示能力，字段以该宿主实时工具定义为准。这些是客户端 UI 能力，不是 yuanji MCP 工具；不编造 openCanvas、previewAssemble 等服务端接口，不用系统 open/浏览器命令冒充右侧预览，也不改全局链接打开偏好。
+优先调用宿主实际开放的内置网页预览、标签复用和右侧显示能力，字段以该宿主实时工具定义为准。这些是客户端 UI 能力，不是 creatly MCP 工具；不编造 openCanvas、previewAssemble 等服务端接口，不用系统 open/浏览器命令冒充右侧预览，也不改全局链接打开偏好。
 
 [WorkBuddy 右侧边栏说明](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Right-Sidebar)确认内置浏览器支持多标签和关闭标签，但不定义统一的 Agent 工具名；实际调用仍以当前客户端开放能力为准。仅有命令行、外部浏览器，或无法查询状态且没有明确可复用标签的打开能力时，说明右侧自动预览/去重的具体缺口，并交付[可点击画布链接](reading.md#给用户定位链接)，不声称已打开或已复用。
 

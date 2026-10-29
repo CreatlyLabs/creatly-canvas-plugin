@@ -8,13 +8,13 @@ import tempfile
 from pathlib import Path
 
 ENVIRONMENTS = {
-    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.22-dev'),
-    'test': ('test', 'test.yuanji.studio', '测试', '0.2.23-test'),
-    'production': ('main', 'yuanji.studio', '生产', '0.2.22'),
+    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.24-dev'),
+    'test': ('test', 'test.yuanji.studio', '测试', '0.2.24-test'),
+    'production': ('main', 'creatly.cn', '生产', '0.2.24'),
 }
 
 # Keep the host's OAuth credential identity stable when releasing a new plugin version.
-MCP_SERVER_NAME = 'yuanji'
+MCP_SERVER_NAME = 'creatly'
 
 # Each host discovers its own manifest; the workflow and remote backend are shared.
 CLIENTS = {
@@ -60,7 +60,7 @@ def normalize_openai_app_id(value):
 def configure(root, environment, openai_app_id=None):
     environment = normalize_environment(environment)
     branch, domain, label, version = ENVIRONMENTS[environment]
-    plugin = root / 'plugins/creatly-video-director'
+    plugin = root / 'plugins/creatly-canvas'
     site = f'https://{domain}'
     endpoint = f'{site}/api/agent/mcp/v2'
     server = 'creatly' if environment == 'production' else f'creatly-{environment}'
@@ -89,7 +89,7 @@ def configure(root, environment, openai_app_id=None):
     for host in ['codex', 'claude', 'codebuddy']:
         path = plugin / f'.{host}-plugin/plugin.json'
         data = json.loads(path.read_text())
-        assert data['name'] == 'creatly-video-director'
+        assert data['name'] == 'creatly-canvas'
         data.update(version=version, homepage=site)
         if 'url' in data.get('author', {}): data['author']['url'] = site
         if 'interface' in data: data['interface']['websiteURL'] = site
@@ -105,12 +105,12 @@ def configure(root, environment, openai_app_id=None):
         data = json.loads(path.read_text())
         assert data['name'] == 'creatly'
         for item in data['plugins']:
-            if item['name'] == 'creatly-video-director':
+            if item['name'] == 'creatly-canvas':
                 item.update(version=version, homepage=site)
         write_json(path, data)
     for path in plugin.glob('skills/*/references/mcp-execution.md'):
         text = path.read_text()
-        for _, known_domain, _, _ in ENVIRONMENTS.values():
+        for known_domain in {domain for _, domain, _, _ in ENVIRONMENTS.values()} | {'yuanji.studio'}:
             text = text.replace(f'https://{known_domain}/api/agent/mcp/v2', endpoint)
         path.write_text(text)
     for path in [root / 'README.md', plugin / 'README.md']:
@@ -120,10 +120,10 @@ def configure(root, environment, openai_app_id=None):
         protocol = 'skills/creatly-canvas/references/mcp-execution.md'
         connection_guide = 'docs/oauth-connection.md'
         four_view_guide = 'skills/creatly-canvas/references/character-four-view.md'
-        if path == root / 'README.md': protocol = 'plugins/creatly-video-director/' + protocol
-        if path == root / 'README.md': connection_guide = 'plugins/creatly-video-director/' + connection_guide
-        if path == root / 'README.md': four_view_guide = 'plugins/creatly-video-director/' + four_view_guide
-        header = f'''# Creatly Canvas Plugin · {label}环境
+        if path == root / 'README.md': protocol = 'plugins/creatly-canvas/' + protocol
+        if path == root / 'README.md': connection_guide = 'plugins/creatly-canvas/' + connection_guide
+        if path == root / 'README.md': four_view_guide = 'plugins/creatly-canvas/' + four_view_guide
+        header = f'''# Creatly Canvas · {label}环境
 
 本分支 `{branch}` 通过远程 MCP 连接 [{domain}]({site}/)，无需启动本地画布服务。
 
@@ -133,7 +133,7 @@ def configure(root, environment, openai_app_id=None):
 | --- | --- | --- |
 | 开发 | https://dev.yuanji.studio | dev |
 | 测试 | https://test.yuanji.studio | test |
-| 生产 | https://yuanji.studio | main |
+| 生产 | https://creatly.cn | main |
 
 安装的分支决定连接的环境，打开另一个网站不会自动切换插件。切换环境前，在宿主中移除旧的 `creatly` marketplace 来源，再添加目标分支并重新加载插件；在目标环境完成授权，确认账号与空间。三个环境不共用授权和画布数据。
 
@@ -141,22 +141,24 @@ def configure(root, environment, openai_app_id=None):
 
 ```bash
 codex plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git --ref {branch}
-codex plugin add creatly-video-director@creatly
+codex plugin add creatly-canvas@creatly
 ```
 
 ## Claude Code 安装
 
 ```text
 /plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git#{branch}
-/plugin install creatly-video-director@creatly
+/plugin install creatly-canvas@creatly
 ```
 
-首次连接时，按宿主提示完成 yuanji 的 OAuth 授权，在 **{domain}** 登录并选择空间。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期]({connection_guide})。
+首次连接时，按宿主提示完成 Creatly 的 OAuth 授权，在 **{domain}** 登录并选择空间。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期]({connection_guide})。
+
+本次升级更改了插件和 MCP 的内部名称，宿主可能将其识别为新连接；旧版用户如遇授权提示，需按宿主引导重新连接一次。旧正式域名迁移至 `creatly.cn` 时也可能需要重新授权。
 
 ## 一次授权与自动续期
 
 - Creatly 采用标准 OAuth：访问令牌默认 30 分钟，刷新令牌默认 30 天；成功刷新会返回新的访问令牌和刷新令牌，由宿主安全保存。30 天指刷新令牌有效期，不是让一个访问令牌使用 30 天；实际有效期以服务端签发结果为准。
-- 同一环境更新时保持插件名 `creatly-video-director`、MCP 名 `yuanji` 和 MCP 地址稳定。通过宿主的更新流程升级，不为日常更新卸载重装、登出或重复添加手动 MCP。
+- 同一环境更新时保持插件名 `creatly-canvas`、MCP 名 `creatly` 和 MCP 地址稳定。通过宿主的更新流程升级，不为日常更新卸载重装、登出或重复添加手动 MCP。
 - 正常续期不需要浏览器、保持画布打开或重新输入密码。撤销授权、刷新令牌到期、凭据丢失或切换环境后，才按宿主提示重新连接。网站登录与插件授权是两套凭据。
 - 403 是资源权限问题；429、5xx 和连接超时是请求问题。不要因此清除授权或反复登录。`invalid_client` 表示客户端注册/认证异常，`invalid_grant` 表示刷新凭据异常，应先诊断具体原因。
 
@@ -266,9 +268,9 @@ def export_package(root, environment, client, output, openai_app_id=None):
 
     with tempfile.TemporaryDirectory(prefix='creatly-package-') as temp:
         staged = Path(temp)
-        plugin = staged / 'plugins/creatly-video-director'
+        plugin = staged / 'plugins/creatly-canvas'
         for relative in PUBLIC_PLUGIN_FILES:
-            source = root / 'plugins/creatly-video-director' / relative
+            source = root / 'plugins/creatly-canvas' / relative
             if source.is_symlink() or not source.resolve().is_relative_to(root):
                 raise ValueError(f'Public package source must be a regular repository file: {relative}')
             target = plugin / relative
@@ -296,7 +298,7 @@ def export_package(root, environment, client, output, openai_app_id=None):
             (plugin / '.app.json').unlink(missing_ok=True)
         shutil.rmtree(staged / 'config', ignore_errors=True)
         branch, domain, _, version = ENVIRONMENTS[environment]
-        manifests = '\n'.join(f'- `plugins/creatly-video-director/{adapter[0]}/plugin.json`'
+        manifests = '\n'.join(f'- `plugins/creatly-canvas/{adapter[0]}/plugin.json`'
                               for adapter in selected.values())
         (staged / 'INSTALL.md').write_text(f'''# Creatly {client} 安装包
 

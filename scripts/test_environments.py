@@ -23,13 +23,13 @@ class EnvironmentPackagesTest(unittest.TestCase):
             module.configure(root, 'test', 'plugin_asdk_app_testfixture')
             mapping_path = root / 'config/openai-apps.json'
             self.assertEqual(json.loads(mapping_path.read_text())['test'], 'asdk_app_testfixture')
-            app_path = root / 'plugins/creatly-video-director/.app.json'
-            self.assertEqual(json.loads(app_path.read_text())['apps']['yuanji']['id'], 'asdk_app_testfixture')
+            app_path = root / 'plugins/creatly-canvas/.app.json'
+            self.assertEqual(json.loads(app_path.read_text())['apps']['creatly']['id'], 'asdk_app_testfixture')
             # Upgrade a mapping written by the previous renderer without requiring a new ID.
             mapping_path.write_text(json.dumps({'test': 'plugin_connector_testfixture', 'dev': None}))
             module.configure(root, 'test')
             self.assertEqual(json.loads(mapping_path.read_text()), {'test': 'connector_testfixture', 'dev': None})
-            self.assertEqual(json.loads(app_path.read_text())['apps']['yuanji']['id'], 'connector_testfixture')
+            self.assertEqual(json.loads(app_path.read_text())['apps']['creatly']['id'], 'connector_testfixture')
 
     def test_invalid_platform_detail_ids_are_rejected(self):
         for value in [None, 42, 'asdk_app_', 'asdk_app_-bad', 'asdk_app__bad', 'plugin_plugin_asdk_app_fixture', 'https://chatgpt.com/plugins/plugin_asdk_app_fixture']:
@@ -42,11 +42,11 @@ class EnvironmentPackagesTest(unittest.TestCase):
             for directory in ['plugins', '.claude-plugin', '.codebuddy-plugin']:
                 shutil.copytree(ROOT / directory, root / directory, ignore=shutil.ignore_patterns('node_modules'))
             shutil.copy(ROOT / 'README.md', root / 'README.md')
-            plugin = root / 'plugins/creatly-video-director'
+            plugin = root / 'plugins/creatly-canvas'
             # This fixture ID never goes into a released package or a live platform request.
             app_id = 'asdk_app_testfixture'
             module.configure(root, 'test', app_id)
-            expected = {'apps': {'yuanji': {'id': app_id, 'required': True}}}
+            expected = {'apps': {'creatly': {'id': app_id, 'required': True}}}
             self.assertEqual(json.loads((plugin / '.app.json').read_text()), expected)
             self.assertEqual(json.loads((plugin / '.codex-plugin/plugin.json').read_text())['apps'], './.app.json')
             for host in ['claude', 'codebuddy']:
@@ -81,9 +81,9 @@ class EnvironmentPackagesTest(unittest.TestCase):
                 with self.subTest(environment=env):
                     module.configure(root, env)
                     branch, domain, _, version = module.ENVIRONMENTS[env]
-                    plugin = root / 'plugins/creatly-video-director'
+                    plugin = root / 'plugins/creatly-canvas'
                     endpoint = f'https://{domain}/api/agent/mcp/v2'
-                    expected = {'yuanji': {'type': 'http', 'url': endpoint}}
+                    expected = {'creatly': {'type': 'http', 'url': endpoint}}
                     for filename in ['.mcp.json', '.mcp.claude.json']:
                         self.assertEqual(json.loads((plugin / filename).read_text())['mcpServers'], expected)
                     for host in ['codex', 'claude', 'codebuddy']:
@@ -102,13 +102,27 @@ class EnvironmentPackagesTest(unittest.TestCase):
                     module.configure(root, env)
                     self.assertEqual(snapshot, {p.relative_to(root): p.read_bytes() for p in root.rglob('*') if p.is_file()})
 
+    def test_production_domain_and_legacy_protocol_are_migrated(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for directory in ['plugins', '.claude-plugin', '.codebuddy-plugin']:
+                shutil.copytree(ROOT / directory, root / directory, ignore=shutil.ignore_patterns('node_modules'))
+            shutil.copy(ROOT / 'README.md', root / 'README.md')
+            protocol = root / 'plugins/creatly-canvas/skills/creatly-canvas/references/mcp-execution.md'
+            protocol.write_text(protocol.read_text().replace('https://test.yuanji.studio/api/agent/mcp/v2', 'https://yuanji.studio/api/agent/mcp/v2'))
+            module.configure(root, 'production')
+            self.assertIn('https://creatly.cn/api/agent/mcp/v2', protocol.read_text())
+            self.assertNotIn('https://yuanji.studio/api/agent/mcp/v2', protocol.read_text())
+            mcp = json.loads((root / 'plugins/creatly-canvas/.mcp.json').read_text())['mcpServers']
+            self.assertEqual(mcp, {'creatly': {'type': 'http', 'url': 'https://creatly.cn/api/agent/mcp/v2'}})
+
     def test_same_environment_upgrade_keeps_oauth_connection_identity(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             for directory in ['plugins', '.claude-plugin', '.codebuddy-plugin']:
                 shutil.copytree(ROOT / directory, root / directory, ignore=shutil.ignore_patterns('node_modules'))
             shutil.copy(ROOT / 'README.md', root / 'README.md')
-            plugin = root / 'plugins/creatly-video-director'
+            plugin = root / 'plugins/creatly-canvas'
             module.configure(root, 'test')
             connections = {name: (plugin / name).read_bytes() for name in ['.mcp.json', '.mcp.claude.json']}
             codebuddy_connection = json.loads((plugin / '.codebuddy-plugin/plugin.json').read_text())['mcpServers']
@@ -119,24 +133,24 @@ class EnvironmentPackagesTest(unittest.TestCase):
                 self.assertEqual((plugin / name).read_bytes(), previous)
             for host in ['codex', 'claude', 'codebuddy']:
                 manifest = json.loads((plugin / f'.{host}-plugin/plugin.json').read_text())
-                self.assertEqual(manifest['name'], 'creatly-video-director')
+                self.assertEqual(manifest['name'], 'creatly-canvas')
                 self.assertEqual(manifest['version'], '9.9.9-test')
                 if host == 'codebuddy':
                     self.assertEqual(manifest['mcpServers'], codebuddy_connection)
-            self.assertEqual(list(codebuddy_connection), ['yuanji'])
+            self.assertEqual(list(codebuddy_connection), ['creatly'])
             for path in [root / 'README.md', plugin / 'README.md']:
                 self.assertIn('一次授权与自动续期', path.read_text())
 
     def test_release_packages_only_declare_remote_oauth_no_local_bridge_or_credentials(self):
-        plugin = ROOT / 'plugins/creatly-video-director'
+        plugin = ROOT / 'plugins/creatly-canvas'
         site = json.loads((plugin / '.codex-plugin/plugin.json').read_text())['homepage']
         self.assertIn(site, {f'https://{domain}'
                              for _, domain, _, _ in module.ENVIRONMENTS.values()})
         for name in ['.mcp.json', '.mcp.claude.json']:
             config = json.loads((plugin / name).read_text())
             self.assertEqual(set(config), {'mcpServers'})
-            self.assertEqual(set(config['mcpServers']), {'yuanji'})
-            server = config['mcpServers']['yuanji']
+            self.assertEqual(set(config['mcpServers']), {'creatly'})
+            server = config['mcpServers']['creatly']
             self.assertEqual(set(server), {'type', 'url'})
             self.assertEqual(server['type'], 'http')
             self.assertEqual(server['url'], f'{site}/api/agent/mcp/v2')
@@ -162,17 +176,17 @@ class ClientPackagesTest(unittest.TestCase):
                     with self.subTest(environment=env, client=client):
                         output = parent / env / client
                         module.export_package(root, env, client, output)
-                        plugin = output / 'plugins/creatly-video-director'
+                        plugin = output / 'plugins/creatly-canvas'
                         canonical = module.normalize_environment(env)
                         branch, domain, _, version = module.ENVIRONMENTS[canonical]
-                        expected = {'yuanji': {'type': 'http', 'url': f'https://{domain}/api/agent/mcp/v2'}}
+                        expected = {'creatly': {'type': 'http', 'url': f'https://{domain}/api/agent/mcp/v2'}}
                         for host, (manifest_dir, marketplace_dir, mcp_file) in module.CLIENTS.items():
                             selected = client in ('all', host)
                             self.assertEqual((plugin / manifest_dir).exists(), selected)
                             self.assertEqual((output / marketplace_dir).exists(), selected)
                             if selected:
                                 manifest = json.loads((plugin / manifest_dir / 'plugin.json').read_text())
-                                self.assertEqual(manifest['name'], 'creatly-video-director')
+                                self.assertEqual(manifest['name'], 'creatly-canvas')
                                 self.assertEqual(manifest['version'], version)
                                 self.assertEqual(manifest['homepage'], f'https://{domain}')
                                 if host == 'workbuddy':
@@ -184,8 +198,8 @@ class ClientPackagesTest(unittest.TestCase):
                                 if selected:
                                     self.assertEqual(json.loads((plugin / mcp_file).read_text()), {'mcpServers': expected})
                         self.assertEqual((plugin / 'skills/creatly-canvas/SKILL.md').read_bytes(),
-                                         (root / 'plugins/creatly-video-director/skills/creatly-canvas/SKILL.md').read_bytes())
-                        self.assertIn(expected['yuanji']['url'],
+                                         (root / 'plugins/creatly-canvas/skills/creatly-canvas/SKILL.md').read_bytes())
+                        self.assertIn(expected['creatly']['url'],
                                       (plugin / 'skills/creatly-canvas/references/mcp-execution.md').read_text())
                         self.assertIn(f'源分支：`{branch}`', (output / 'INSTALL.md').read_text())
                         skill_text = (plugin / 'skills/creatly-canvas/SKILL.md').read_text()
@@ -213,23 +227,23 @@ class ClientPackagesTest(unittest.TestCase):
             for client in ['codex', 'claude', 'workbuddy', 'all']:
                 output = parent / client
                 module.export_package(root, 'test', client, output)
-                app_file = output / 'plugins/creatly-video-director/.app.json'
+                app_file = output / 'plugins/creatly-canvas/.app.json'
                 self.assertEqual(app_file.exists(), client in ('codex', 'all'))
                 if app_file.exists():
-                    self.assertEqual(json.loads(app_file.read_text())['apps']['yuanji']['id'], 'asdk_app_testfixture')
+                    self.assertEqual(json.loads(app_file.read_text())['apps']['creatly']['id'], 'asdk_app_testfixture')
                 for host in ['claude', 'codebuddy']:
-                    manifest = output / f'plugins/creatly-video-director/.{host}-plugin/plugin.json'
+                    manifest = output / f'plugins/creatly-canvas/.{host}-plugin/plugin.json'
                     if manifest.exists():
                         self.assertNotIn('apps', json.loads(manifest.read_text()))
             module.export_package(root, 'dev', 'codex', parent / 'dev-codex')
-            self.assertFalse((parent / 'dev-codex/plugins/creatly-video-director/.app.json').exists())
+            self.assertFalse((parent / 'dev-codex/plugins/creatly-canvas/.app.json').exists())
             self.assertEqual(self.snapshot(root), original)
 
     def test_export_excludes_unreviewed_internal_material(self):
         with tempfile.TemporaryDirectory() as temp:
             parent = Path(temp)
             root = self.copy_source(parent / 'source')
-            plugin = root / 'plugins/creatly-video-director'
+            plugin = root / 'plugins/creatly-canvas'
             marker = b'private-method-fixture-not-for-release'
             for relative in ['skills/film-skill/SKILL.md',
                              'skills/creatly-canvas/references/internal-methods.md',
@@ -243,7 +257,7 @@ class ClientPackagesTest(unittest.TestCase):
             for client in [*module.CLIENTS, 'all']:
                 output = parent / client
                 module.export_package(root, 'test', client, output)
-                public_plugin = output / 'plugins/creatly-video-director'
+                public_plugin = output / 'plugins/creatly-canvas'
                 self.assertEqual({p.name for p in (public_plugin / 'skills').iterdir()}, {'creatly-canvas'})
                 self.assertFalse((public_plugin / 'scripts/film_gate_check.py').exists())
                 self.assertFalse((public_plugin / 'skills/creatly-canvas/references/internal-methods.md').exists())
@@ -256,7 +270,7 @@ class ClientPackagesTest(unittest.TestCase):
             root = self.copy_source(parent / 'source')
             secret = parent / 'internal-methods.md'
             secret.write_text('private-method-fixture-not-for-release')
-            source = root / 'plugins/creatly-video-director/scripts/upload_file.py'
+            source = root / 'plugins/creatly-canvas/scripts/upload_file.py'
             source.unlink()
             source.symlink_to(secret)
             output = parent / 'export'
@@ -295,8 +309,8 @@ class ClientPackagesTest(unittest.TestCase):
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout.strip(), str(output.resolve()))
-            manifest = json.loads((output / 'plugins/creatly-video-director/.codebuddy-plugin/plugin.json').read_text())
-            self.assertEqual(manifest['mcpServers']['yuanji']['url'], 'https://yuanji.studio/api/agent/mcp/v2')
-            self.assertFalse((output / 'plugins/creatly-video-director/.codex-plugin').exists())
+            manifest = json.loads((output / 'plugins/creatly-canvas/.codebuddy-plugin/plugin.json').read_text())
+            self.assertEqual(manifest['mcpServers']['creatly']['url'], 'https://creatly.cn/api/agent/mcp/v2')
+            self.assertFalse((output / 'plugins/creatly-canvas/.codex-plugin').exists())
 
 if __name__ == '__main__': unittest.main()

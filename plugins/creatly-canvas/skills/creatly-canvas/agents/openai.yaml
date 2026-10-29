@@ -1,9 +1,9 @@
 interface:
-  display_name: "Creatly 画布操作"
+  display_name: "Creatly 画布"
   short_description: "读取与修改 Creatly 画布、上传本地素材、管理主体、提交生成并查询真实结果"
   default_prompt: "使用 $creatly-canvas 读取我的 Creatly 项目，按我指定的范围更新节点并核对结果。"
 dependencies:
   tools:
     - type: "mcp"
-      value: "yuanji"
+      value: "creatly"
       description: "当前插件环境配置的 Creatly 远程 MCP"

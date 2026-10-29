@@ -15,7 +15,7 @@ ZIP 根目录直接包含 connector-meta.json、mcp.json、icon.svg 和 skills/�
 
 | 环境 | source | 连接地址 |
 | --- | --- | --- |
-| main | creatly-canvas | https://yuanji.studio/api/agent/mcp/v2 |
+| main | creatly-canvas | https://creatly.cn/api/agent/mcp/v2 |
 | test | creatly-canvas-test | https://test.yuanji.studio/api/agent/mcp/v2 |
 | dev | creatly-canvas-dev | https://dev.yuanji.studio/api/agent/mcp/v2 |
 

@@ -1,4 +1,4 @@
-# Creatly Canvas Plugin · 测试环境
+# Creatly Canvas · 测试环境
 
 本分支 `test` 通过远程 MCP 连接 [test.yuanji.studio](https://test.yuanji.studio/)，无需启动本地画布服务。
 
@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 开发 | https://dev.yuanji.studio | dev |
 | 测试 | https://test.yuanji.studio | test |
-| 生产 | https://yuanji.studio | main |
+| 生产 | https://creatly.cn | main |
 
 安装的分支决定连接的环境，打开另一个网站不会自动切换插件。切换环境前，在宿主中移除旧的 `creatly` marketplace 来源，再添加目标分支并重新加载插件；在目标环境完成授权，确认账号与空间。三个环境不共用授权和画布数据。
 
@@ -16,22 +16,24 @@
 
 ```bash
 codex plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git --ref test
-codex plugin add creatly-video-director@creatly
+codex plugin add creatly-canvas@creatly
 ```
 
 ## Claude Code 安装
 
 ```text
 /plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git#test
-/plugin install creatly-video-director@creatly
+/plugin install creatly-canvas@creatly
 ```
 
-首次连接时，按宿主提示完成 yuanji 的 OAuth 授权，在 **test.yuanji.studio** 登录并选择空间。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期](docs/oauth-connection.md)。
+首次连接时，按宿主提示完成 Creatly 的 OAuth 授权，在 **test.yuanji.studio** 登录并选择空间。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期](docs/oauth-connection.md)。
+
+本次升级更改了插件和 MCP 的内部名称，宿主可能将其识别为新连接；旧版用户如遇授权提示，需按宿主引导重新连接一次。旧正式域名迁移至 `creatly.cn` 时也可能需要重新授权。
 
 ## 一次授权与自动续期
 
 - Creatly 采用标准 OAuth：访问令牌默认 30 分钟，刷新令牌默认 30 天；成功刷新会返回新的访问令牌和刷新令牌，由宿主安全保存。30 天指刷新令牌有效期，不是让一个访问令牌使用 30 天；实际有效期以服务端签发结果为准。
-- 同一环境更新时保持插件名 `creatly-video-director`、MCP 名 `yuanji` 和 MCP 地址稳定。通过宿主的更新流程升级，不为日常更新卸载重装、登出或重复添加手动 MCP。
+- 同一环境更新时保持插件名 `creatly-canvas`、MCP 名 `creatly` 和 MCP 地址稳定。通过宿主的更新流程升级，不为日常更新卸载重装、登出或重复添加手动 MCP。
 - 正常续期不需要浏览器、保持画布打开或重新输入密码。撤销授权、刷新令牌到期、凭据丢失或切换环境后，才按宿主提示重新连接。网站登录与插件授权是两套凭据。
 - 403 是资源权限问题；429、5xx 和连接超时是请求问题。不要因此清除授权或反复登录。`invalid_client` 表示客户端注册/认证异常，`invalid_grant` 表示刷新凭据异常，应先诊断具体原因。
 
