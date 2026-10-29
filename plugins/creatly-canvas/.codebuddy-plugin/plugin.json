@@ -1,6 +1,6 @@
 {
-  "name": "creatly-video-director",
-  "version": "0.2.15-dev",
+  "name": "creatly-canvas",
+  "version": "0.2.24-dev",
   "description": "Operate the Creatly canvas, upload assets, and manage media generation through remote MCP.",
   "author": {
     "name": "Creatly",
@@ -18,7 +18,7 @@
     "./skills/creatly-canvas"
   ],
   "mcpServers": {
-    "yuanji": {
+    "creatly": {
       "type": "http",
       "url": "https://dev.yuanji.studio/api/agent/mcp/v2"
     }

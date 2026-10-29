@@ -1,6 +1,10 @@
 # 账号连接与自动续期
 
-元极通过远程 Streamable HTTP MCP 和标准 OAuth 连接账号。宿主（Codex、Claude Code 等）完成首次浏览器登录、PKCE、凭据保存和自动续期，插件只声明服务器与创作技能。这种模式无需本地画布服务或保持网页打开。
+Creatly 通过远程 Streamable HTTP MCP 和标准 OAuth 连接账号。宿主（Codex、Claude Code 等）完成首次浏览器登录、PKCE、凭据保存和自动续期，插件只声明服务器与创作技能。这种模式无需本地画布服务或保持网页打开。
+
+## 从旧版迁移
+
+插件内部名称从 `creatly-video-director` 变为 `creatly-canvas`，MCP 连接名称从 `yuanji` 变为 `creatly`。宿主可能把新版视为新插件或新连接，无法保证沿用旧授权；如出现授权提示，按宿主流程重新连接。确认新连接可用后再由用户按需管理旧连接。正式环境同时迁移至 `https://creatly.cn`，旧域名的 OAuth 授权不会自动转移。
 
 ## 持续使用
 
@@ -11,7 +15,7 @@
 
 后端默认访问令牌为 30 分钟、刷新令牌为 30 天。每次成功续期签发新的 30 天刷新令牌；连续使用可持续续期，停止使用直至刷新令牌到期后需要重新授权。具体时长以环境配置和 token 响应为准，插件不能保证永久登录。
 
-同一环境更新必须保留插件名 `creatly-video-director`、MCP 名 `yuanji`、域名和 `/api/agent/mcp/v2` 地址。日常更新使用宿主的插件更新操作，不清除凭据，不安装第二个指向同一地址的手动 MCP。安装目录和版本不是访问令牌存储位置。
+同一环境更新必须保留插件名 `creatly-canvas`、MCP 名 `creatly`、域名和 `/api/agent/mcp/v2` 地址。日常更新使用宿主的插件更新操作，不清除凭据，不安装第二个指向同一地址的手动 MCP。安装目录和版本不是访问令牌存储位置。
 
 ## 按错误处理
 
@@ -38,8 +42,8 @@ Codex 的「应用」「已连接的账户」区域由平台提供。插件通�
 
 ### 维护者接入步骤
 
-1. 在 [ChatGPT 插件目录](https://chatgpt.com/plugins) 的「添加 → 添加自定义 MCP 服务器」创建对应环境的元极插件。选择 OAuth，服务器 URL 使用该环境的 `/api/agent/mcp/v2`。检查发现的客户端注册方式、回调和权限范围，再完成注册和授权。
-2. 取得平台返回的实际应用 ID。应用 ID 不是元极 OAuth 的 `client_id`，不包含 access token、refresh token 或客户端密钥。个人自定义应用的可见性由平台控制；给同事发布之前，要确认他们能访问该应用。
+1. 在 [ChatGPT 插件目录](https://chatgpt.com/plugins) 的「添加 → 添加自定义 MCP 服务器」创建对应环境的 Creatly 插件。选择 OAuth，服务器 URL 使用该环境的 `/api/agent/mcp/v2`。检查发现的客户端注册方式、回调和权限范围，再完成注册和授权。
+2. 取得平台返回的实际应用 ID。应用 ID 不是 Creatly OAuth 的 `client_id`，不包含 access token、refresh token 或客户端密钥。个人自定义应用的可见性由平台控制；给同事发布之前，要确认他们能访问该应用。
 3. 在仓库根目录执行 `python3 scripts/configure-environment.py test --openai-app-id '平台返回的实际应用ID'`。将 `test` 替换为对应环境。脚本接受平台页面的 `plugin_asdk_app_…` 等技术 ID，并去掉页面路由的 `plugin_` 前缀；`.app.json` 保存实际的 `asdk_app_…`、`connector_…` 或 `templated_apps_…` ID。脚本持久保存到 `config/openai-apps.json` 并生成 `.app.json` 和 Codex 的 `apps` 声明；未注册的环境不会继承别的环境 ID。普通升级保留同一映射。
 4. 发布带 `getProfile` 的后端。该只读工具没有入参，标记 `_meta["openai/profile"]: true`；账号 ID 基于不可变真实用户和授权空间生成，不随客户端、令牌、显示名称或成员记录变化。`name` 是账号名称，`nickname` 包含授权空间名称。不返回手机号、令牌或业务执行日志。
 5. 刷新插件，在 Codex 设置中验证「应用」和「已连接的账户」，连接后检查账号和空间，续期及重新连接后确认没有多出重复账户。仅更新仓库配置不代表面板已启用。

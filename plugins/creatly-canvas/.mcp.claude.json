@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "yuanji": {
+    "creatly": {
       "type": "http",
       "url": "https://dev.yuanji.studio/api/agent/mcp/v2"
     }
