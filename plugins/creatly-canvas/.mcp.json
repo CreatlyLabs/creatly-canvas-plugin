@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "creatly": {
+      "type": "http",
+      "url": "https://creatly.cn/api/agent/mcp/v2"
+    }
+  }
+}

@@ -6,15 +6,15 @@
   },
   "plugins": [
     {
-      "name": "creatly-video-director",
+      "name": "creatly-canvas",
       "description": "Operate the Creatly canvas, upload assets, and manage media generation through remote MCP.",
-      "version": "0.2.15",
+      "version": "0.2.24",
       "author": {
         "name": "Creatly"
       },
       "category": "design",
-      "source": "./plugins/creatly-video-director",
-      "homepage": "https://yuanji.studio"
+      "source": "./plugins/creatly-canvas",
+      "homepage": "https://creatly.cn"
     }
   ]
 }

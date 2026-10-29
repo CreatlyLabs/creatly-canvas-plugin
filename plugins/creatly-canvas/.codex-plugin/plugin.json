@@ -1,12 +1,12 @@
 {
-  "name": "creatly-video-director",
-  "version": "0.2.15",
+  "name": "creatly-canvas",
+  "version": "0.2.24",
   "description": "Operate the Creatly canvas, upload assets, and manage media generation through remote MCP.",
   "author": {
     "name": "Creatly",
-    "url": "https://yuanji.studio"
+    "url": "https://creatly.cn"
   },
-  "homepage": "https://yuanji.studio",
+  "homepage": "https://creatly.cn",
   "keywords": [
     "canvas",
     "media",
@@ -25,7 +25,7 @@
       "Write",
       "Interactive"
     ],
-    "websiteURL": "https://yuanji.studio",
+    "websiteURL": "https://creatly.cn",
     "brandColor": "#E5484D",
     "defaultPrompt": [
       "使用 $creatly-canvas 找到我的项目，查看节点目录。",

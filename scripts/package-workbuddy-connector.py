@@ -45,9 +45,9 @@ def validate_connector(directory):
     if metadata['type'] != 'mcp' or 'auth_mode' in metadata:
         raise ValueError('Use native MCP OAuth, not a token form or managed-auth mode.')
     mcp = json.loads((directory / 'mcp.json').read_text())
-    if set(mcp) != {'mcpServers'} or set(mcp['mcpServers']) != {'yuanji'}:
+    if set(mcp) != {'mcpServers'} or set(mcp['mcpServers']) != {'creatly'}:
         raise ValueError('Exactly one MCP server is required.')
-    server = mcp['mcpServers']['yuanji']
+    server = mcp['mcpServers']['creatly']
     valid_urls = {f'https://{domain}/api/agent/mcp/v2'
                   for _, domain, _, _ in environment_config.ENVIRONMENTS.values()}
     if (set(server) != {'type', 'url', 'timeout'} or server['type'] != 'streamableHttp'
@@ -95,27 +95,27 @@ def package_connector(root, environment, output):
         temp = Path(temp)
         # Reuse the reviewed public export, never copy the repository wholesale.
         marketplace = environment_config.export_package(root, environment, 'workbuddy', temp / 'marketplace')
-        public = marketplace / 'plugins/creatly-video-director'
+        public = marketplace / 'plugins/creatly-canvas'
         staged = temp / 'connector'
         staged.mkdir()
-        title = '元极 Creatly 画布' + (f' · {label}' if branch != 'main' else '')
+        title = 'Creatly 画布' + (f' · {label}' if branch != 'main' else '')
         english = 'Creatly Canvas' + (f' ({branch})' if branch != 'main' else '')
-        chinese_description = '连接元极画布，读取和修改项目节点、上传素材、管理主体，并按授权提交图片或视频生成及查询结果。'
+        chinese_description = '连接 Creatly 画布，读取和修改项目节点、上传素材、按需管理主体，并按授权提交图片或视频生成及查询结果。'
         english_description = 'Read and update Creatly canvas projects, upload assets, manage subjects, and submit authorized media generation.'
         metadata = {
             'name': title, 'name_zh': title, 'name_en': english,
             'description': chinese_description, 'description_zh': chinese_description,
             'description_en': english_description, 'source': source, 'type': 'mcp',
             'version': version, 'minWorkbuddyVersion': '4.24.0',
-            'examples_zh': ['列出我在元极中的项目，并查看指定画布的节点目录。',
-                            '把我提供的图片上传到元极画布，创建图片节点，不提交生成。',
+            'examples_zh': ['列出我在 Creatly 中的项目，并查看指定画布的节点目录。',
+                            '把我提供的图片上传到 Creatly 画布，创建图片节点，不提交生成。',
                             '查看这个视频节点的模型和分辨率，估算生成费用，先不要提交。'],
             'examples_en': ['List my Creatly projects and show the selected canvas node directory.',
                             'Upload my image and create an image node without generating media.',
                             'Check this video node model and resolution, then estimate the cost without submitting.'],
         }
         (staged / 'connector-meta.json').write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + '\n')
-        (staged / 'mcp.json').write_text(json.dumps({'mcpServers': {'yuanji': {
+        (staged / 'mcp.json').write_text(json.dumps({'mcpServers': {'creatly': {
             'type': 'streamableHttp', 'url': f'https://{domain}/api/agent/mcp/v2', 'timeout': 30000,
         }}}, ensure_ascii=False, indent=2) + '\n')
         copy_file(root / 'connectors/workbuddy/icon.svg', staged / 'icon.svg', root)
@@ -137,7 +137,7 @@ def package_connector(root, environment, output):
             'description': chinese_description, 'description_zh': chinese_description,
             'description_en': english_description, 'version': version, 'author': 'Creatly',
         }
-        intro = ('在 WorkBuddy 中通过连接器自带的 yuanji MCP 操作；首次使用在连接器页面点击连接，'
+        intro = ('在 WorkBuddy 中通过连接器自带的 creatly MCP 操作；首次使用在连接器页面点击连接，'
                  '由宿主完成网站 OAuth，后续复用已有连接。工具说明和只读示例见 @references/workbuddy-tools.md。'
                  '本地上传脚本需要可用的 Python 3；没有本机执行或文件传输能力时说明限制，'
                  '其他远程画布操作仍可执行，不把本地路径当作已上传素材。\n\n')

@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "yuanji": {
-      "type": "http",
-      "url": "https://yuanji.studio/api/agent/mcp/v2"
-    }
-  }
-}

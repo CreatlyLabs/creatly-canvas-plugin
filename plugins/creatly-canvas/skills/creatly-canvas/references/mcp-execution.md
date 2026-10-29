@@ -1,6 +1,6 @@
 # 连接与执行协议
 
-本分支连接 `https://yuanji.studio/api/agent/mcp/v2`，采用标准 Streamable HTTP MCP 与 OAuth。无需本地画布服务或保持浏览器画布打开。授权、凭据保存和续期由宿主管理；不读取用户凭据文件，不索取或复制密码、Cookie、访问令牌，不使用历史本地桥接替代授权。
+本分支连接 `https://creatly.cn/api/agent/mcp/v2`，采用标准 Streamable HTTP MCP 与 OAuth。无需本地画布服务或保持浏览器画布打开。授权、凭据保存和续期由宿主管理；不读取用户凭据文件，不索取或复制密码、Cookie、访问令牌，不使用历史本地桥接替代授权。
 
 首次连接按宿主提示完成网站授权。后续任务、重启和同一环境插件升级先复用原连接，不把每日 `/mcp`、重装或重复添加服务器当作启动步骤。账户和空间以 `listProjects` 等真实回执中的 authorizationContext 为准，令牌已经绑定时不重复询问。详细排障见 [账号连接与续期](../../../docs/oauth-connection.md)。
 

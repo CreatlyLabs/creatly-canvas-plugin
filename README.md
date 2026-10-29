@@ -1,6 +1,6 @@
-# Creatly Canvas Plugin · 生产环境
+# Creatly Canvas · 生产环境
 
-本分支 `main` 通过远程 MCP 连接 [yuanji.studio](https://yuanji.studio/)，无需启动本地画布服务。
+本分支 `main` 通过远程 MCP 连接 [creatly.cn](https://creatly.cn/)，无需启动本地画布服务。
 
 ## 环境对应
 
@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 开发 | https://dev.yuanji.studio | dev |
 | 测试 | https://test.yuanji.studio | test |
-| 生产 | https://yuanji.studio | main |
+| 生产 | https://creatly.cn | main |
 
 安装的分支决定连接的环境，打开另一个网站不会自动切换插件。切换环境前，在宿主中移除旧的 `creatly` marketplace 来源，再添加目标分支并重新加载插件；在目标环境完成授权，确认账号与空间。三个环境不共用授权和画布数据。
 
@@ -16,22 +16,24 @@
 
 ```bash
 codex plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git --ref main
-codex plugin add creatly-video-director@creatly
+codex plugin add creatly-canvas@creatly
 ```
 
 ## Claude Code 安装
 
 ```text
 /plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git#main
-/plugin install creatly-video-director@creatly
+/plugin install creatly-canvas@creatly
 ```
 
-首次连接时，按宿主提示完成 yuanji 的 OAuth 授权，在 **yuanji.studio** 登录并选择空间。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期](plugins/creatly-video-director/docs/oauth-connection.md)。
+首次连接时，按宿主提示完成 Creatly 的 OAuth 授权，在 **creatly.cn** 登录并选择空间。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期](plugins/creatly-canvas/docs/oauth-connection.md)。
+
+本次升级更改了插件和 MCP 的内部名称，宿主可能将其识别为新连接；旧版用户如遇授权提示，需按宿主引导重新连接一次。旧正式域名迁移至 `creatly.cn` 时也可能需要重新授权。
 
 ## 一次授权与自动续期
 
-- 元极采用标准 OAuth：访问令牌默认 30 分钟，刷新令牌默认 30 天；成功刷新会返回新的访问令牌和刷新令牌，由宿主安全保存。30 天指刷新令牌有效期，不是让一个访问令牌使用 30 天；实际有效期以服务端签发结果为准。
-- 同一环境更新时保持插件名 `creatly-video-director`、MCP 名 `yuanji` 和 MCP 地址稳定。通过宿主的更新流程升级，不为日常更新卸载重装、登出或重复添加手动 MCP。
+- Creatly 采用标准 OAuth：访问令牌默认 30 分钟，刷新令牌默认 30 天；成功刷新会返回新的访问令牌和刷新令牌，由宿主安全保存。30 天指刷新令牌有效期，不是让一个访问令牌使用 30 天；实际有效期以服务端签发结果为准。
+- 同一环境更新时保持插件名 `creatly-canvas`、MCP 名 `creatly` 和 MCP 地址稳定。通过宿主的更新流程升级，不为日常更新卸载重装、登出或重复添加手动 MCP。
 - 正常续期不需要浏览器、保持画布打开或重新输入密码。撤销授权、刷新令牌到期、凭据丢失或切换环境后，才按宿主提示重新连接。网站登录与插件授权是两套凭据。
 - 403 是资源权限问题；429、5xx 和连接超时是请求问题。不要因此清除授权或反复登录。`invalid_client` 表示客户端注册/认证异常，`invalid_grant` 表示刷新凭据异常，应先诊断具体原因。
 
@@ -39,9 +41,9 @@ codex plugin add creatly-video-director@creatly
 
 ## Codex 已连接账户面板
 
-本环境尚未填写平台注册的元极应用 ID，因此当前安装包仍通过 MCP 连接管理授权，尚不显示平台账户面板。
+本环境尚未填写平台注册的 Creatly 应用 ID，因此当前安装包仍通过 MCP 连接管理授权，尚不显示平台账户面板。
 
-维护者在平台创建对应环境的自定义 MCP 插件后，将实际应用 ID 写入 `config/openai-apps.json`；详细步骤见 [账号连接与续期](plugins/creatly-video-director/docs/oauth-connection.md)。平台注册、后端部署和真实账户连接均完成后才算面板验收通过。三个环境使用各自的应用 ID，升级时保留已有映射。
+维护者在平台创建对应环境的自定义 MCP 插件后，将实际应用 ID 写入 `config/openai-apps.json`；详细步骤见 [账号连接与续期](plugins/creatly-canvas/docs/oauth-connection.md)。平台注册、后端部署和真实账户连接均完成后才算面板验收通过。三个环境使用各自的应用 ID，升级时保留已有映射。
 
 ## WorkBuddy
 
@@ -60,34 +62,34 @@ python3 scripts/package-workbuddy-connector.py main
 Codex：
 
 ```bash
-codex mcp add creatly --url https://yuanji.studio/api/agent/mcp/v2
+codex mcp add creatly --url https://creatly.cn/api/agent/mcp/v2
 codex mcp login creatly
 ```
 
 Claude Code：
 
 ```text
-claude mcp add --transport http creatly https://yuanji.studio/api/agent/mcp/v2
+claude mcp add --transport http creatly https://creatly.cn/api/agent/mcp/v2
 /mcp
 ```
 
 手动 HTTP MCP 配置：
 
 ```json
-{"mcpServers": {"creatly": {"type": "http", "url": "https://yuanji.studio/api/agent/mcp/v2"}}}
+{"mcpServers": {"creatly": {"type": "http", "url": "https://creatly.cn/api/agent/mcp/v2"}}}
 ```
 
 手动 MCP 配置不包含插件创作技能；已通过插件连接时无需重复添加。
 
 ## 公开技能与协议
 
-公开技能为 `creatly-canvas`：读取和修改画布、上传本地素材、管理主体、配置生成、估价并查询真实结果。用户提供内容和执行范围，本技能负责落实到画布；不包含内部电影制作方法、创作案例、提示词模板或质量检查脚本。基础画布操作无需安装私有技能。
+公开技能为 `creatly-canvas`：读取和修改画布、上传本地素材、管理主体、配置生成、估价并查询真实结果。用户提供内容和执行范围，本技能负责落实到画布；同时提供[人物横版四视图模板](plugins/creatly-canvas/skills/creatly-canvas/references/character-four-view.md)，以正脸近景和全身正/侧/背视图保留人物细节。其余内部电影制作方法、创作案例和质量检查脚本不随包提供。基础画布操作无需安装私有技能。
 
 从 0.2.14 起，公开插件使用 `$creatly-canvas`，原 `film-skill` 不再随公开包提供。已有内部电影技能可单独保留；插件名、MCP 名和同环境 OAuth 地址保持稳定，正常升级无需重新添加连接。
 
 图片默认 Sunburst 2K；视频默认 Seedance 2.5、480p、开启音频。用户明确指定优先，能力以实时模型目录为准，不因默认值改变重生成已有节点。
 
-配置使用标准 HTTP MCP，由宿主管理 OAuth 授权与令牌刷新，不打包凭据。通过实时 `tools/list` 获取工具及 Schema，具体见 [执行协议](plugins/creatly-video-director/skills/creatly-canvas/references/mcp-execution.md)。工具能力取决于对应环境的后端部署；插件升级不等于后端已发布，也不代表已完成付费生成验收。
+配置使用标准 HTTP MCP，由宿主管理 OAuth 授权与令牌刷新，不打包凭据。通过实时 `tools/list` 获取工具及 Schema，具体见 [执行协议](plugins/creatly-canvas/skills/creatly-canvas/references/mcp-execution.md)。工具能力取决于对应环境的后端部署；插件升级不等于后端已发布，也不代表已完成付费生成验收。
 
 仓库中的旧 stdio 适配器仅为历史开发工具，本版本插件不加载它。
 
@@ -123,9 +125,11 @@ python3 scripts/configure-environment.py main --client workbuddy
 
 ## 图片、视频、音频上传
 
-本地素材通过 upload prepare → 本机 HTTPS PUT → upload complete 登记。保留上传脚本与文件类型检查；详见 [上传脚本说明](plugins/creatly-video-director/scripts/README.md)。上传本身不提交生成、不扣除生成费用，工具可用性以对应后端实时目录为准。
+本地素材通过 upload prepare → 本机 HTTPS PUT → upload complete 登记。保留上传脚本与文件类型检查；详见 [上传脚本说明](plugins/creatly-canvas/scripts/README.md)。上传本身不提交生成、不扣除生成费用，工具可用性以对应后端实时目录为准。
 
 ## 画布读取与写入
+
+人物、场景、物品等默认创建普通图片节点；仅用户明确要求创建主体或添加到主体库时才新建主体。
 
 未知节点先读 brief 目录，已知 ID 用 getNodes 精读必要字段。全画布 full 读取只用于确需完整快照的操作，不为局部修改反复分页拉取全部正文。主体、节点和文件 ID 分开使用；文件可挂到节点自身媒体，也可作为生成参考，两者用途不同。
 

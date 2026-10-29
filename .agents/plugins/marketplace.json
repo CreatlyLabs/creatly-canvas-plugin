@@ -1,14 +1,14 @@
 {
   "name": "creatly",
   "interface": {
-    "displayName": "Creatly"
+    "displayName": "Creatly Canvas"
   },
   "plugins": [
     {
-      "name": "creatly-video-director",
+      "name": "creatly-canvas",
       "source": {
         "source": "local",
-        "path": "./plugins/creatly-video-director"
+        "path": "./plugins/creatly-canvas"
       },
       "policy": {
         "installation": "AVAILABLE",
