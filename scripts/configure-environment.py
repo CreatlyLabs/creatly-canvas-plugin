@@ -8,9 +8,9 @@ import tempfile
 from pathlib import Path
 
 ENVIRONMENTS = {
-    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.24-dev'),
-    'test': ('test', 'test.yuanji.studio', '测试', '0.2.24-test'),
-    'production': ('main', 'creatly.cn', '生产', '0.2.24'),
+    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.25-dev'),
+    'test': ('test', 'test.yuanji.studio', '测试', '0.2.25-test'),
+    'production': ('main', 'creatly.cn', '生产', '0.2.25'),
 }
 
 # Keep the host's OAuth credential identity stable when releasing a new plugin version.
@@ -151,7 +151,7 @@ codex plugin add creatly-canvas@creatly
 /plugin install creatly-canvas@creatly
 ```
 
-首次连接时，按宿主提示完成 Creatly 的 OAuth 授权，在 **{domain}** 登录并选择空间。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期]({connection_guide})。
+首次连接时，按宿主提示完成 Creatly 的 OAuth 授权，在 **{domain}** 登录并选择空间。在会话里要求开始授权时，只发起一次宿主连接；宿主已打开网页后不再用浏览器或其他工具重复打开回执中的链接。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期]({connection_guide})。
 
 本次升级更改了插件和 MCP 的内部名称，宿主可能将其识别为新连接；旧版用户如遇授权提示，需按宿主引导重新连接一次。旧正式域名迁移至 `creatly.cn` 时也可能需要重新授权。
 
