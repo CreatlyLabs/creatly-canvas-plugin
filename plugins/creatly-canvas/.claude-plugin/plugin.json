@@ -1,6 +1,6 @@
 {
   "name": "creatly-canvas",
-  "version": "0.2.24",
+  "version": "0.2.25",
   "description": "Operate the Creatly canvas, upload assets, and manage media generation through remote MCP.",
   "author": {
     "name": "Creatly"
