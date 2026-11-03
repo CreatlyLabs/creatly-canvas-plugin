@@ -20,7 +20,7 @@ class WorkBuddyConnectorTest(unittest.TestCase):
                  for name in module.environment_config.PUBLIC_PLUGIN_FILES]
         files += ['README.md', '.agents/plugins/marketplace.json', '.claude-plugin/marketplace.json',
                   '.codebuddy-plugin/marketplace.json', 'config/openai-apps.json',
-                  'connectors/workbuddy/icon.svg', 'connectors/workbuddy/tool-guide.md']
+                  'connectors/workbuddy/icon.svg', 'connectors/workbuddy/tool-guide.md', 'connectors/workbuddy/oauth-connection.md']
         for relative in files:
             path = ROOT / relative
             if path.exists():
@@ -42,12 +42,18 @@ class WorkBuddyConnectorTest(unittest.TestCase):
                     metadata = module.validate_connector(output)
                     sources.add(metadata['source'])
                     self.assertEqual(metadata['minWorkbuddyVersion'], '4.24.0')
+                    self.assertEqual(len(metadata['examples_zh']), 4)
+                    self.assertEqual(len(metadata['examples_en']), 4)
                     self.assertNotIn('auth_mode', metadata)
                     mcp = json.loads((output / 'mcp.json').read_text())
-                    self.assertEqual(mcp, {'mcpServers': {'creatly': {
+                    self.assertEqual(mcp, {'mcpServers': {metadata['source']: {
                         'type': 'streamableHttp', 'url': f'https://{domain}/api/agent/mcp/v2', 'timeout': 30000}}})
                     skill = (output / 'skills/creatly-canvas/SKILL.md').read_text()
                     self.assertIn('@references/workbuddy-tools.md', skill)
+                    self.assertIn(f'连接器自带的 {metadata["source"]} MCP', skill)
+                    icon = module.ET.parse(output / 'icon.svg').getroot()
+                    self.assertGreaterEqual(int(icon.get('width')), 64)
+                    self.assertGreaterEqual(int(icon.get('height')), 64)
                     self.assertIn('description_zh:', skill)
                     self.assertIn('description_en:', skill)
                     self.assertIn('author: "Creatly"', skill)
@@ -117,7 +123,7 @@ class WorkBuddyConnectorTest(unittest.TestCase):
             output, archive = module.package_connector(source, 'main', parent / 'connector')
             mcp_file = output / 'mcp.json'
             data = json.loads(mcp_file.read_text())
-            data['mcpServers']['creatly']['type'] = 'http'
+            data['mcpServers'][module.validate_connector(output)['source']]['type'] = 'http'
             mcp_file.write_text(json.dumps(data))
             with self.assertRaisesRegex(ValueError, 'transport'):
                 module.validate_connector(output)
@@ -126,6 +132,33 @@ class WorkBuddyConnectorTest(unittest.TestCase):
             icon.symlink_to(ROOT / 'connectors/workbuddy/icon.svg')
             with self.assertRaisesRegex(ValueError, 'regular reviewed file'):
                 module.package_connector(source, 'test', parent / 'symlink-connector')
+
+    def test_submission_rejects_mismatched_server_key_missing_script_and_small_icon(self):
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            source = self.source(parent / 'source')
+            output, _ = module.package_connector(source, 'main', parent / 'connector')
+            mcp_file = output / 'mcp.json'
+            original_mcp = mcp_file.read_text()
+            data = json.loads(original_mcp)
+            server = data['mcpServers'].pop('creatly-canvas')
+            data['mcpServers']['creatly'] = server
+            mcp_file.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, 'matching connector source'):
+                module.validate_connector(output)
+            mcp_file.write_text(original_mcp)
+
+            readme = output / 'skills/creatly-canvas/scripts/README.md'
+            original_readme = readme.read_text()
+            readme.write_text(original_readme + '\npython3 scripts/test_upload_file.py\n')
+            with self.assertRaisesRegex(ValueError, 'Missing documented script: test_upload_file.py'):
+                module.validate_connector(output)
+            readme.write_text(original_readme)
+
+            icon = output / 'icon.svg'
+            icon.write_text(icon.read_text().replace('width="64"', 'width="32"'))
+            with self.assertRaisesRegex(ValueError, 'at least 64'):
+                module.validate_connector(output)
 
     def test_cli_builds_submission_zip(self):
         with tempfile.TemporaryDirectory() as temp:
