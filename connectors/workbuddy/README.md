@@ -11,7 +11,7 @@ python3 scripts/package-workbuddy-connector.py dev
 
 输出为 `dist/<分支>/workbuddy-connector/<source>/` 及旁边的 `<source>-<版本>.zip`。
 可用 `--output <新目录>` 指定目录。相同内容可重复导出，遇到不同内容的已有目录或 ZIP 会拒绝覆盖。
-ZIP 根目录直接包含 connector-meta.json、mcp.json、icon.svg 和 skills/，不包裹 Git 仓库、marketplace、其他客户端配置或私有电影技能。
+ZIP 根目录直接包含 connector-meta.json、mcp.json、icon.png 和 skills/，不包裹 Git 仓库、marketplace、其他客户端配置或私有电影技能。
 
 | 环境 | source | 连接地址 |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ ZIP 根目录直接包含 connector-meta.json、mcp.json、icon.svg 和 skills/�
 `source` 是拟申请标识，能否使用需以平台审核为准。首次发布后保持标识稳定。正式市场使用 main 包，测试环境用于联调。
 使用中英文名称、描述及示例，声明最低 WorkBuddy 4.24.0；远程传输使用平台要求的 streamableHttp，单 Server、30 秒超时。
 官方市场包声明 `auth_mode: "server-side"` 与 `server_auth.auth_type: "mcp_oauth"`。WorkBuddy 云端通过 MCP 资源地址发现元数据、动态注册客户端、完成 OAuth 并托管令牌；包中不填写注册后才产生的 client_id、client_secret、redirect_uri，也不要求用户填写长期 Token。
-MCP Server 键名与当前环境的 source 一致。图标使用 Creatly 标识，声明尺寸为 64×64。包内只保留可执行的使用说明，开发测试命令不进入提交包。
+MCP Server 键名与当前环境的 source 一致。图标使用用户提供的 Creatly PNG 原图，尺寸为 128×128，不缩放或重绘。包内只保留可执行的使用说明，开发测试命令不进入提交包。
 
 ## 提交前联调
 
