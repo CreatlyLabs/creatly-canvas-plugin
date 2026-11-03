@@ -44,13 +44,22 @@ class WorkBuddyConnectorTest(unittest.TestCase):
                     self.assertEqual(metadata['minWorkbuddyVersion'], '4.24.0')
                     self.assertEqual(len(metadata['examples_zh']), 4)
                     self.assertEqual(len(metadata['examples_en']), 4)
-                    self.assertNotIn('auth_mode', metadata)
+                    self.assertEqual(metadata['auth_mode'], 'server-side')
+                    self.assertEqual(metadata['server_auth'], {
+                        'auth_type': 'mcp_oauth',
+                        'data': {'mcp_oauth': {
+                            'server_url': f'https://{domain}/api/agent/mcp/v2',
+                            'scopes': 'mcp:read mcp:write mcp:generate',
+                        }},
+                    })
                     mcp = json.loads((output / 'mcp.json').read_text())
                     self.assertEqual(mcp, {'mcpServers': {metadata['source']: {
                         'type': 'streamableHttp', 'url': f'https://{domain}/api/agent/mcp/v2', 'timeout': 30000}}})
                     skill = (output / 'skills/creatly-canvas/SKILL.md').read_text()
                     self.assertIn('@references/workbuddy-tools.md', skill)
                     self.assertIn(f'连接器自带的 {metadata["source"]} MCP', skill)
+                    self.assertIn(f'`{metadata["source"]}` MCP', skill)
+                    self.assertIn('WorkBuddy 云端管理', skill)
                     icon = module.ET.parse(output / 'icon.svg').getroot()
                     self.assertGreaterEqual(int(icon.get('width')), 64)
                     self.assertGreaterEqual(int(icon.get('height')), 64)
@@ -59,7 +68,9 @@ class WorkBuddyConnectorTest(unittest.TestCase):
                     self.assertIn('author: "Creatly"', skill)
                     self.assertIn('只有用户明确要求', skill)
                     self.assertIn('不因此新建主体', skill)
-                    self.assertTrue(metadata['name_zh'].startswith('Creatly '))
+                    self.assertTrue(metadata['name_zh'].startswith('Creatly'))
+                    if branch == 'main':
+                        self.assertEqual({metadata[k] for k in ['name', 'name_zh', 'name_en']}, {'Creatly'})
                     for path in output.rglob('*'):
                         if path.is_file() and path.suffix in {'.md', '.json', '.yaml'}:
                             self.assertNotIn('\u5143\u6781', path.read_text(), str(path))
@@ -158,6 +169,29 @@ class WorkBuddyConnectorTest(unittest.TestCase):
             icon = output / 'icon.svg'
             icon.write_text(icon.read_text().replace('width="64"', 'width="32"'))
             with self.assertRaisesRegex(ValueError, 'at least 64'):
+                module.validate_connector(output)
+
+    def test_official_package_rejects_missing_auth_and_mismatched_discovery_url(self):
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            source = self.source(parent / 'source')
+            output, _ = module.package_connector(source, 'main', parent / 'connector')
+            metadata_file = output / 'connector-meta.json'
+            original = metadata_file.read_text()
+            data = json.loads(original)
+            del data['auth_mode']
+            metadata_file.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, 'declare server-side OAuth'):
+                module.validate_connector(output)
+            data = json.loads(original)
+            data['server_auth']['data']['mcp_oauth']['server_url'] = 'https://test.yuanji.studio/api/agent/mcp/v2'
+            metadata_file.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, 'same MCP resource'):
+                module.validate_connector(output)
+            data = json.loads(original)
+            data['server_auth']['data']['mcp_oauth']['client_secret'] = 'must-not-be-packaged'
+            metadata_file.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, 'no credentials'):
                 module.validate_connector(output)
 
     def test_cli_builds_submission_zip(self):

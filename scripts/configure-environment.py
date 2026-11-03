@@ -8,9 +8,9 @@ import tempfile
 from pathlib import Path
 
 ENVIRONMENTS = {
-    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.26-dev'),
-    'test': ('test', 'test.yuanji.studio', '测试', '0.2.26-test'),
-    'production': ('main', 'creatly.cn', '生产', '0.2.26'),
+    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.27-dev'),
+    'test': ('test', 'test.yuanji.studio', '测试', '0.2.27-test'),
+    'production': ('main', 'creatly.cn', '生产', '0.2.27'),
 }
 
 # Keep the host's OAuth credential identity stable when releasing a new plugin version.
