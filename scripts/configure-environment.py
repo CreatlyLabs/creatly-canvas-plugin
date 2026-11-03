@@ -8,9 +8,9 @@ import tempfile
 from pathlib import Path
 
 ENVIRONMENTS = {
-    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.27-dev'),
-    'test': ('test', 'test.yuanji.studio', '测试', '0.2.27-test'),
-    'production': ('main', 'creatly.cn', '生产', '0.2.27'),
+    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.28-dev'),
+    'test': ('test', 'test.yuanji.studio', '测试', '0.2.28-test'),
+    'production': ('main', 'creatly.cn', '生产', '0.2.28'),
 }
 
 # Keep the host's OAuth credential identity stable when releasing a new plugin version.
@@ -178,7 +178,7 @@ codex plugin add creatly-canvas@creatly
 python3 scripts/package-workbuddy-connector.py {branch}
 ```
 
-生成 connector-meta.json、mcp.json、icon.svg、公开技能和 ZIP。参见 [开放平台连接器打包与联调](https://github.com/CreatlyLabs/creatly-canvas-plugin/blob/{branch}/connectors/workbuddy/README.md)。目录检查通过不代表网站 OAuth 或平台审核已通过。
+生成 connector-meta.json、mcp.json、icon.png、公开技能和 ZIP。参见 [开放平台连接器打包与联调](https://github.com/CreatlyLabs/creatly-canvas-plugin/blob/{branch}/connectors/workbuddy/README.md)。目录检查通过不代表网站 OAuth 或平台审核已通过。
 
 下载 [{branch} 分支 ZIP](https://github.com/CreatlyLabs/creatly-canvas-plugin/archive/refs/heads/{branch}.zip)，按宿主的本地 marketplace 安装流程导入。需要支持 HTTP MCP 与 OAuth；完整安装与授权流程尚未端到端验证。
 
