@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
-import xml.etree.ElementTree as ET
+import struct
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,12 +61,12 @@ def validate_connector(directory):
     if metadata.get('server_auth') != expected_auth:
         raise ValueError('Server OAuth must discover the same MCP resource with supported scopes and no credentials.')
 
-    icon = ET.parse(directory / 'icon.svg').getroot()
-    if icon.tag != '{http://www.w3.org/2000/svg}svg':
-        raise ValueError('The connector icon must be an SVG.')
-    if any(not re.fullmatch(r'\d+(?:px)?', icon.get(key, ''))
-           or float(icon.get(key).removesuffix('px')) < 64 for key in ['width', 'height']):
-        raise ValueError('The submission icon must declare at least 64 by 64 pixels.')
+    icon = (directory / 'icon.png').read_bytes()
+    if len(icon) < 33 or icon[:16] != b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR':
+        raise ValueError('The connector icon must be a PNG with an IHDR header.')
+    width, height = struct.unpack('>II', icon[16:24])
+    if width != height or min(width, height) < 64:
+        raise ValueError('The submission icon must be square and at least 64 by 64 pixels.')
     skill = directory / 'skills/creatly-canvas/SKILL.md'
     text = skill.read_text()
     for field in ['name', 'display_name', 'display_name_en', 'description', 'description_zh',
@@ -145,7 +145,7 @@ def package_connector(root, environment, output):
         (staged / 'mcp.json').write_text(json.dumps({'mcpServers': {source: {
             'type': 'streamableHttp', 'url': f'https://{domain}/api/agent/mcp/v2', 'timeout': 30000,
         }}}, ensure_ascii=False, indent=2) + '\n')
-        copy_file(root / 'connectors/workbuddy/icon.svg', staged / 'icon.svg', root)
+        copy_file(root / 'connectors/workbuddy/icon.png', staged / 'icon.png', root)
         skill = staged / 'skills/creatly-canvas'
         for relative in environment_config.PUBLIC_PLUGIN_FILES:
             if relative.startswith('skills/creatly-canvas/') and '/agents/' not in relative:

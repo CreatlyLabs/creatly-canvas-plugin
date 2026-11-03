@@ -20,7 +20,7 @@ class WorkBuddyConnectorTest(unittest.TestCase):
                  for name in module.environment_config.PUBLIC_PLUGIN_FILES]
         files += ['README.md', '.agents/plugins/marketplace.json', '.claude-plugin/marketplace.json',
                   '.codebuddy-plugin/marketplace.json', 'config/openai-apps.json',
-                  'connectors/workbuddy/icon.svg', 'connectors/workbuddy/tool-guide.md', 'connectors/workbuddy/oauth-connection.md']
+                  'connectors/workbuddy/icon.png', 'connectors/workbuddy/tool-guide.md', 'connectors/workbuddy/oauth-connection.md']
         for relative in files:
             path = ROOT / relative
             if path.exists():
@@ -60,9 +60,11 @@ class WorkBuddyConnectorTest(unittest.TestCase):
                     self.assertIn(f'连接器自带的 {metadata["source"]} MCP', skill)
                     self.assertIn(f'`{metadata["source"]}` MCP', skill)
                     self.assertIn('WorkBuddy 云端管理', skill)
-                    icon = module.ET.parse(output / 'icon.svg').getroot()
-                    self.assertGreaterEqual(int(icon.get('width')), 64)
-                    self.assertGreaterEqual(int(icon.get('height')), 64)
+                    icon = (output / 'icon.png').read_bytes()
+                    self.assertEqual(icon, (source / 'connectors/workbuddy/icon.png').read_bytes())
+                    width, height = module.struct.unpack('>II', icon[16:24])
+                    self.assertEqual(width, height)
+                    self.assertGreaterEqual(width, 64)
                     self.assertIn('description_zh:', skill)
                     self.assertIn('description_en:', skill)
                     self.assertIn('author: "Creatly"', skill)
@@ -79,7 +81,7 @@ class WorkBuddyConnectorTest(unittest.TestCase):
                     with zipfile.ZipFile(archive) as z:
                         self.assertIsNone(z.testzip())
                         names = z.namelist()
-                        self.assertTrue({'connector-meta.json', 'mcp.json', 'icon.svg'} <= set(names))
+                        self.assertTrue({'connector-meta.json', 'mcp.json', 'icon.png'} <= set(names))
                         self.assertFalse(any(name.startswith(('plugins/', '.codebuddy-plugin/', '.agents/')) for name in names))
                         self.assertFalse(any('/agents/' in name or '/film-skill/' in name for name in names))
                         self.assertFalse(any(name.startswith('/') or '..' in Path(name).parts for name in names))
@@ -138,13 +140,13 @@ class WorkBuddyConnectorTest(unittest.TestCase):
             mcp_file.write_text(json.dumps(data))
             with self.assertRaisesRegex(ValueError, 'transport'):
                 module.validate_connector(output)
-            icon = source / 'connectors/workbuddy/icon.svg'
+            icon = source / 'connectors/workbuddy/icon.png'
             icon.unlink()
-            icon.symlink_to(ROOT / 'connectors/workbuddy/icon.svg')
+            icon.symlink_to(ROOT / 'connectors/workbuddy/icon.png')
             with self.assertRaisesRegex(ValueError, 'regular reviewed file'):
                 module.package_connector(source, 'test', parent / 'symlink-connector')
 
-    def test_submission_rejects_mismatched_server_key_missing_script_and_small_icon(self):
+    def test_submission_rejects_mismatched_server_key_missing_script_and_invalid_icon(self):
         with tempfile.TemporaryDirectory() as temp:
             parent = Path(temp)
             source = self.source(parent / 'source')
@@ -166,9 +168,9 @@ class WorkBuddyConnectorTest(unittest.TestCase):
                 module.validate_connector(output)
             readme.write_text(original_readme)
 
-            icon = output / 'icon.svg'
-            icon.write_text(icon.read_text().replace('width="64"', 'width="32"'))
-            with self.assertRaisesRegex(ValueError, 'at least 64'):
+            icon = output / 'icon.png'
+            icon.write_bytes(b'not-a-png')
+            with self.assertRaisesRegex(ValueError, 'must be a PNG'):
                 module.validate_connector(output)
 
     def test_official_package_rejects_missing_auth_and_mismatched_discovery_url(self):
