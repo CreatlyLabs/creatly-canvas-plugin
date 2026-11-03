@@ -45,16 +45,20 @@ def validate_connector(directory):
     if metadata['type'] != 'mcp' or 'auth_mode' in metadata:
         raise ValueError('Use native MCP OAuth, not a token form or managed-auth mode.')
     mcp = json.loads((directory / 'mcp.json').read_text())
-    if set(mcp) != {'mcpServers'} or set(mcp['mcpServers']) != {'creatly'}:
-        raise ValueError('Exactly one MCP server is required.')
-    server = mcp['mcpServers']['creatly']
+    if set(mcp) != {'mcpServers'} or set(mcp['mcpServers']) != {metadata['source']}:
+        raise ValueError('Exactly one MCP server matching connector source is required.')
+    server = mcp['mcpServers'][metadata['source']]
     valid_urls = {f'https://{domain}/api/agent/mcp/v2'
                   for _, domain, _, _ in environment_config.ENVIRONMENTS.values()}
     if (set(server) != {'type', 'url', 'timeout'} or server['type'] != 'streamableHttp'
             or server['url'] not in valid_urls or server['timeout'] != 30000):
         raise ValueError('Invalid remote MCP transport, environment URL or timeout.')
-    if ET.parse(directory / 'icon.svg').getroot().tag != '{http://www.w3.org/2000/svg}svg':
+    icon = ET.parse(directory / 'icon.svg').getroot()
+    if icon.tag != '{http://www.w3.org/2000/svg}svg':
         raise ValueError('The connector icon must be an SVG.')
+    if any(not re.fullmatch(r'\d+(?:px)?', icon.get(key, ''))
+           or float(icon.get(key).removesuffix('px')) < 64 for key in ['width', 'height']):
+        raise ValueError('The submission icon must declare at least 64 by 64 pixels.')
     skill = directory / 'skills/creatly-canvas/SKILL.md'
     text = skill.read_text()
     for field in ['name', 'display_name', 'display_name_en', 'description', 'description_zh',
@@ -68,6 +72,11 @@ def validate_connector(directory):
             target = (path.parent / dest.split('#')[0]).resolve()
             if not target.is_relative_to(directory.resolve()) or not target.is_file():
                 raise ValueError(f'Broken or external local reference: {path.name} -> {dest}')
+    for path in directory.rglob('*.md'):
+        without_urls = re.sub(r'https?://[^\s)]+', '', path.read_text())
+        for filename in re.findall(r'(?<![\w./-])(?:scripts/)?([A-Za-z0-9_.-]+\.py)\b', without_urls):
+            if not (skill.parent / 'scripts' / filename).is_file():
+                raise ValueError(f'Missing documented script: {filename}')
     for dest in re.findall(r'@(references/[A-Za-z0-9._/-]+)', text):
         if not (skill.parent / dest).is_file():
             raise ValueError(f'Unresolved WorkBuddy reference: {dest}')
@@ -107,15 +116,17 @@ def package_connector(root, environment, output):
             'description': chinese_description, 'description_zh': chinese_description,
             'description_en': english_description, 'source': source, 'type': 'mcp',
             'version': version, 'minWorkbuddyVersion': '4.24.0',
-            'examples_zh': ['列出我在 Creatly 中的项目，并查看指定画布的节点目录。',
-                            '把我提供的图片上传到 Creatly 画布，创建图片节点，不提交生成。',
-                            '查看这个视频节点的模型和分辨率，估算生成费用，先不要提交。'],
-            'examples_en': ['List my Creatly projects and show the selected canvas node directory.',
-                            'Upload my image and create an image node without generating media.',
-                            'Check this video node model and resolution, then estimate the cost without submitting.'],
+            'examples_zh': ['帮我创作一个故事，完善剧情和人物设定，并整理到 Creatly 画布。',
+                            '查看我在 Creatly 的项目，帮我找到指定画布，梳理里面的人物、场景和镜头。',
+                            '根据我的创意策划一支短片，拆分分镜，在 Creatly 画布中制作图片和视频。',
+                            '根据我的产品资料策划一支营销短视频，设计卖点、画面和文案，并在 Creatly 画布中制作。'],
+            'examples_en': ['Help me create a story, develop its plot and characters, and organize them on a Creatly canvas.',
+                            'View my Creatly projects, find the specified canvas, and summarize its characters, scenes, and shots.',
+                            'Turn my idea into a short film: plan the storyboard and create images and videos on a Creatly canvas.',
+                            'Create a product marketing video from my materials, including selling points, visuals, and copy, on a Creatly canvas.'],
         }
         (staged / 'connector-meta.json').write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + '\n')
-        (staged / 'mcp.json').write_text(json.dumps({'mcpServers': {'creatly': {
+        (staged / 'mcp.json').write_text(json.dumps({'mcpServers': {source: {
             'type': 'streamableHttp', 'url': f'https://{domain}/api/agent/mcp/v2', 'timeout': 30000,
         }}}, ensure_ascii=False, indent=2) + '\n')
         copy_file(root / 'connectors/workbuddy/icon.svg', staged / 'icon.svg', root)
@@ -125,10 +136,14 @@ def package_connector(root, environment, output):
                 copy_file(public / relative, staged / relative, public)
         for name in ['README.md', 'upload_file.py']:
             copy_file(public / 'scripts' / name, skill / 'scripts' / name, public)
-        copy_file(public / 'docs/oauth-connection.md', skill / 'references/oauth-connection.md', public)
+        upload_guide = skill / 'scripts/README.md'
+        upload_guide.write_text(re.sub(
+            r'```bash\npython3 -m unittest discover -s scripts -p \'test_upload_file\.py\'\n```\n\n',
+            '', upload_guide.read_text()))
+        copy_file(root / 'connectors/workbuddy/oauth-connection.md', skill / 'references/oauth-connection.md', root)
         copy_file(root / 'connectors/workbuddy/tool-guide.md', skill / 'references/workbuddy-tools.md', root)
         for path in (skill / 'references').glob('*.md'):
-            text = path.read_text().replace('../../../docs/oauth-connection.md', 'oauth-connection.md')
+            text = path.read_text().replace('../../../docs/oauth-connection.md', 'oauth-connection.md').replace('`creatly` MCP', f'`{source}` MCP')
             path.write_text(text.replace('../../../scripts/README.md', '../scripts/README.md'))
         body = (skill / 'SKILL.md').read_text().split('---', 2)[2].lstrip()
         body = re.sub(r'\[([^\]]+)\]\((references/[^)]+)\)', r'@\2（\1）', body)
@@ -137,7 +152,7 @@ def package_connector(root, environment, output):
             'description': chinese_description, 'description_zh': chinese_description,
             'description_en': english_description, 'version': version, 'author': 'Creatly',
         }
-        intro = ('在 WorkBuddy 中通过连接器自带的 creatly MCP 操作；首次使用在连接器页面点击连接，'
+        intro = (f'在 WorkBuddy 中通过连接器自带的 {source} MCP 操作；首次使用在连接器页面点击连接，'
                  '由宿主完成网站 OAuth，后续复用已有连接。工具说明和只读示例见 @references/workbuddy-tools.md。'
                  '本地上传脚本需要可用的 Python 3；没有本机执行或文件传输能力时说明限制，'
                  '其他远程画布操作仍可执行，不把本地路径当作已上传素材。\n\n')
