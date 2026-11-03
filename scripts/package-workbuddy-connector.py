@@ -42,8 +42,8 @@ def validate_connector(directory):
             raise ValueError(f'Provide 2-5 examples: {key}')
         if not all(isinstance(item, str) and item for item in metadata[key]):
             raise ValueError(f'Examples must be non-empty strings: {key}')
-    if metadata['type'] != 'mcp' or 'auth_mode' in metadata:
-        raise ValueError('Use native MCP OAuth, not a token form or managed-auth mode.')
+    if metadata['type'] != 'mcp' or metadata.get('auth_mode') != 'server-side':
+        raise ValueError('The official connector must declare server-side OAuth.')
     mcp = json.loads((directory / 'mcp.json').read_text())
     if set(mcp) != {'mcpServers'} or set(mcp['mcpServers']) != {metadata['source']}:
         raise ValueError('Exactly one MCP server matching connector source is required.')
@@ -53,6 +53,14 @@ def validate_connector(directory):
     if (set(server) != {'type', 'url', 'timeout'} or server['type'] != 'streamableHttp'
             or server['url'] not in valid_urls or server['timeout'] != 30000):
         raise ValueError('Invalid remote MCP transport, environment URL or timeout.')
+
+    expected_auth = {
+        'auth_type': 'mcp_oauth',
+        'data': {'mcp_oauth': {'server_url': server['url'], 'scopes': 'mcp:read mcp:write mcp:generate'}},
+    }
+    if metadata.get('server_auth') != expected_auth:
+        raise ValueError('Server OAuth must discover the same MCP resource with supported scopes and no credentials.')
+
     icon = ET.parse(directory / 'icon.svg').getroot()
     if icon.tag != '{http://www.w3.org/2000/svg}svg':
         raise ValueError('The connector icon must be an SVG.')
@@ -107,8 +115,8 @@ def package_connector(root, environment, output):
         public = marketplace / 'plugins/creatly-canvas'
         staged = temp / 'connector'
         staged.mkdir()
-        title = 'Creatly 画布' + (f' · {label}' if branch != 'main' else '')
-        english = 'Creatly Canvas' + (f' ({branch})' if branch != 'main' else '')
+        title = 'Creatly' + (f' · {label}' if branch != 'main' else '')
+        english = 'Creatly' + (f' ({branch})' if branch != 'main' else '')
         chinese_description = '连接 Creatly 画布，读取和修改项目节点、上传素材、按需管理主体，并按授权提交图片或视频生成及查询结果。'
         english_description = 'Read and update Creatly canvas projects, upload assets, manage subjects, and submit authorized media generation.'
         metadata = {
@@ -116,6 +124,14 @@ def package_connector(root, environment, output):
             'description': chinese_description, 'description_zh': chinese_description,
             'description_en': english_description, 'source': source, 'type': 'mcp',
             'version': version, 'minWorkbuddyVersion': '4.24.0',
+            'auth_mode': 'server-side',
+            'server_auth': {
+                'auth_type': 'mcp_oauth',
+                'data': {'mcp_oauth': {
+                    'server_url': f'https://{domain}/api/agent/mcp/v2',
+                    'scopes': 'mcp:read mcp:write mcp:generate',
+                }},
+            },
             'examples_zh': ['帮我创作一个故事，完善剧情和人物设定，并整理到 Creatly 画布。',
                             '查看我在 Creatly 的项目，帮我找到指定画布，梳理里面的人物、场景和镜头。',
                             '根据我的创意策划一支短片，拆分分镜，在 Creatly 画布中制作图片和视频。',
@@ -147,13 +163,14 @@ def package_connector(root, environment, output):
             path.write_text(text.replace('../../../scripts/README.md', '../scripts/README.md'))
         body = (skill / 'SKILL.md').read_text().split('---', 2)[2].lstrip()
         body = re.sub(r'\[([^\]]+)\]\((references/[^)]+)\)', r'@\2（\1）', body)
+        body = body.replace('`creatly` MCP', f'`{source}` MCP')
         header = {
             'name': 'creatly-canvas', 'display_name': title, 'display_name_en': english,
             'description': chinese_description, 'description_zh': chinese_description,
             'description_en': english_description, 'version': version, 'author': 'Creatly',
         }
         intro = (f'在 WorkBuddy 中通过连接器自带的 {source} MCP 操作；首次使用在连接器页面点击连接，'
-                 '由宿主完成网站 OAuth，后续复用已有连接。工具说明和只读示例见 @references/workbuddy-tools.md。'
+                 '由 WorkBuddy 云端管理网站 OAuth、凭据保存和续期，后续复用已有连接。工具说明和只读示例见 @references/workbuddy-tools.md。'
                  '本地上传脚本需要可用的 Python 3；没有本机执行或文件传输能力时说明限制，'
                  '其他远程画布操作仍可执行，不把本地路径当作已上传素材。\n\n')
         (skill / 'SKILL.md').write_text('---\n' + ''.join(
