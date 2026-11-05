@@ -313,4 +313,73 @@ class ClientPackagesTest(unittest.TestCase):
             self.assertEqual(manifest['mcpServers']['creatly']['url'], 'https://creatly.cn/api/agent/mcp/v2')
             self.assertFalse((output / 'plugins/creatly-canvas/.codex-plugin').exists())
 
+    def test_global_exports_keep_domestic_identity_and_bindings_separate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            root = self.copy_source(parent / 'source')
+            (root / 'config/openai-apps.json').write_text(json.dumps({
+                'production': 'asdk_app_domesticfixture',
+                'production-global': 'asdk_app_globalfixture',
+            }))
+            original = self.snapshot(root)
+            for region, domain, marketplace, app_id in [
+                ('cn', 'creatly.cn', 'creatly', 'asdk_app_domesticfixture'),
+                ('global', 'creatly.ai', 'creatly-global', 'asdk_app_globalfixture'),
+            ]:
+                for client in [*module.CLIENTS, 'all']:
+                    with self.subTest(region=region, client=client):
+                        output = parent / region / client
+                        module.export_package(root, 'main', client, output, region=region)
+                        plugin = output / 'plugins/creatly-canvas'
+                        for host, (manifest_dir, market_dir, mcp_file) in module.CLIENTS.items():
+                            if client not in (host, 'all'):
+                                continue
+                            data = json.loads((plugin / manifest_dir / 'plugin.json').read_text())
+                            self.assertEqual(data['name'], 'creatly-canvas')
+                            self.assertEqual(data['homepage'], f'https://{domain}')
+                            market_file = 'plugins/marketplace.json' if host == 'codex' else 'marketplace.json'
+                            market = json.loads((output / market_dir / market_file).read_text())
+                            self.assertEqual(market['name'], marketplace)
+                            servers = (json.loads((plugin / mcp_file).read_text())['mcpServers']
+                                       if mcp_file else data['mcpServers'])
+                            self.assertEqual(servers['creatly']['url'], f'https://{domain}/api/agent/mcp/v2')
+                        if client in ('codex', 'all'):
+                            binding = json.loads((plugin / '.app.json').read_text())
+                            self.assertEqual(binding['apps']['creatly']['id'], app_id)
+                        protocol = (plugin / 'skills/creatly-canvas/references/mcp-execution.md').read_text()
+                        self.assertIn(f'https://{domain}/api/agent/mcp/v2', protocol)
+                        exported = self.snapshot(output)
+                        module.export_package(root, 'main', client, output, region=region)
+                        self.assertEqual(exported, self.snapshot(output))
+            self.assertEqual(original, self.snapshot(root))
+
+    def test_global_does_not_inherit_domestic_app_id_and_unknown_regions_do_not_write(self):
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            root = self.copy_source(parent / 'source')
+            (root / 'config/openai-apps.json').write_text(json.dumps({'production': 'asdk_app_domesticfixture'}))
+            output = parent / 'global'
+            module.export_package(root, 'main', 'codex', output, region='global')
+            self.assertFalse((output / 'plugins/creatly-canvas/.app.json').exists())
+            manifest = json.loads((output / 'plugins/creatly-canvas/.codex-plugin/plugin.json').read_text())
+            self.assertNotIn('apps', manifest)
+            original = self.snapshot(root)
+            for environment, region in [('test', 'global'), ('dev', 'global'), ('main', 'unknown')]:
+                invalid_output = parent / f'{environment}-{region}'
+                with self.subTest(environment=environment, region=region), self.assertRaises(ValueError):
+                    module.export_package(root, environment, 'codex', invalid_output, region=region)
+                self.assertFalse(invalid_output.exists())
+                self.assertEqual(original, self.snapshot(root))
+
+    def test_cli_accepts_global_region_on_main(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / 'global'
+            result = subprocess.run([sys.executable, str(ROOT / 'scripts/configure-environment.py'),
+                                     'main', '--region', 'global', '--client', 'codex', '--output', str(output)],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            connection = json.loads((output / 'plugins/creatly-canvas/.mcp.json').read_text())
+            self.assertEqual(connection['mcpServers']['creatly']['url'], 'https://creatly.ai/api/agent/mcp/v2')
+            self.assertEqual(module.package_key('main', 'global'), 'main-global')
+
 if __name__ == '__main__': unittest.main()

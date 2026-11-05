@@ -50,6 +50,7 @@ def validate_connector(directory):
     server = mcp['mcpServers'][metadata['source']]
     valid_urls = {f'https://{domain}/api/agent/mcp/v2'
                   for _, domain, _, _ in environment_config.ENVIRONMENTS.values()}
+    valid_urls.add(f'https://{environment_config.GLOBAL_DOMAIN}/api/agent/mcp/v2')
     if (set(server) != {'type', 'url', 'timeout'} or server['type'] != 'streamableHttp'
             or server['url'] not in valid_urls or server['timeout'] != 30000):
         raise ValueError('Invalid remote MCP transport, environment URL or timeout.')
@@ -94,11 +95,12 @@ def validate_connector(directory):
     return metadata
 
 
-def package_connector(root, environment, output):
+def package_connector(root, environment, output, region='cn'):
     root, output = Path(root).resolve(), Path(output).resolve()
     environment = environment_config.normalize_environment(environment)
-    branch, domain, label, version = environment_config.ENVIRONMENTS[environment]
-    source = 'creatly-canvas' if branch == 'main' else f'creatly-canvas-{branch}'
+    branch, domain, label, version = environment_config.resolve_environment(environment, region)
+    source = ('creatly-canvas-global' if region == 'global' else
+              'creatly-canvas' if branch == 'main' else f'creatly-canvas-{branch}')
     if root == output or root.is_relative_to(output):
         raise ValueError('Output cannot be the source repository or its parent.')
     if output.is_relative_to(root) and not output.is_relative_to(root / 'dist'):
@@ -111,12 +113,12 @@ def package_connector(root, environment, output):
     with tempfile.TemporaryDirectory(prefix='creatly-workbuddy-') as temp:
         temp = Path(temp)
         # Reuse the reviewed public export, never copy the repository wholesale.
-        marketplace = environment_config.export_package(root, environment, 'workbuddy', temp / 'marketplace')
+        marketplace = environment_config.export_package(root, environment, 'workbuddy', temp / 'marketplace', region=region)
         public = marketplace / 'plugins/creatly-canvas'
         staged = temp / 'connector'
         staged.mkdir()
-        title = 'Creatly' + (f' · {label}' if branch != 'main' else '')
-        english = 'Creatly' + (f' ({branch})' if branch != 'main' else '')
+        title = 'Creatly · Global' if region == 'global' else 'Creatly' + (f' · {label}' if branch != 'main' else '')
+        english = 'Creatly Global' if region == 'global' else 'Creatly' + (f' ({branch})' if branch != 'main' else '')
         chinese_description = '连接 Creatly 画布，读取和修改项目节点、上传素材、按需管理主体，并按授权提交图片或视频生成及查询结果。'
         english_description = 'Read and update Creatly canvas projects, upload assets, manage subjects, and submit authorized media generation.'
         metadata = {
@@ -200,14 +202,17 @@ def package_connector(root, environment, output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('environment', choices=('dev', 'test', 'main', 'production'))
+    parser.add_argument('--region', choices=environment_config.REGIONS, default='cn',
+                        help='Production site: cn (default) or global (creatly.ai).')
     parser.add_argument('--output', type=Path, help='A new or matching connector directory; a ZIP is created beside it.')
     args = parser.parse_args()
     environment = environment_config.normalize_environment(args.environment)
-    branch = environment_config.ENVIRONMENTS[environment][0]
-    source = 'creatly-canvas' if branch == 'main' else f'creatly-canvas-{branch}'
-    output = args.output or ROOT / 'dist' / branch / 'workbuddy-connector' / source
     try:
-        directory, archive = package_connector(ROOT, environment, output)
+        branch, _, _, _ = environment_config.resolve_environment(environment, args.region)
+        source = ('creatly-canvas-global' if args.region == 'global' else
+                  'creatly-canvas' if branch == 'main' else f'creatly-canvas-{branch}')
+        output = args.output or ROOT / 'dist' / environment_config.package_key(environment, args.region) / 'workbuddy-connector' / source
+        directory, archive = package_connector(ROOT, environment, output, args.region)
         print(json.dumps({'directory': str(directory), 'zip': str(archive)}, ensure_ascii=False))
     except (ValueError, FileNotFoundError) as error:
         parser.error(str(error))

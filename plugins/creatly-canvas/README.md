@@ -8,9 +8,20 @@
 | --- | --- | --- |
 | 开发 | https://dev.yuanji.studio | dev |
 | 测试 | https://test.yuanji.studio | test |
-| 生产 | https://creatly.cn | main |
+| 国内生产 | https://creatly.cn | main（默认，或 --region cn） |
+| 海外生产 | https://creatly.ai | main --region global |
 
-安装的分支决定连接的环境，打开另一个网站不会自动切换插件。切换环境前，在宿主中移除旧的 `creatly` marketplace 来源，再添加目标分支并重新加载插件；在目标环境完成授权，确认账号与空间。三个环境不共用授权和画布数据。
+分支选择开发、测试或生产环境；生产环境再用 `--region cn|global` 选择国内或海外站。默认国内，打开另一个网站不会自动切换插件。在目标站点分别授权并确认账号与空间，不跨站复用授权或应用 ID。
+
+海外站与国内站共用 main 分支，使用参数导出，不创建额外 Git 分支：
+
+```bash
+python3 scripts/configure-environment.py main --region global --client codex
+codex plugin marketplace add ./dist/main-global/codex
+codex plugin add creatly-canvas@creatly-global
+```
+
+将 `--client` 改为 `claude` 或 `workbuddy` 可导出对应客户端。海外包使用 `creatly-global` marketplace 与独立输出目录，保留国内 `creatly` 的现有安装身份。海外包不能直接用不带参数的 Git marketplace 安装代替。各站点数据以实际连接回执为准。
 
 ## Codex 安装
 

@@ -8,10 +8,12 @@ import tempfile
 from pathlib import Path
 
 ENVIRONMENTS = {
-    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.28-dev'),
-    'test': ('test', 'test.yuanji.studio', '测试', '0.2.28-test'),
-    'production': ('main', 'creatly.cn', '生产', '0.2.28'),
+    'dev': ('dev', 'dev.yuanji.studio', '开发', '0.2.29-dev'),
+    'test': ('test', 'test.yuanji.studio', '测试', '0.2.29-test'),
+    'production': ('main', 'creatly.cn', '生产', '0.2.29'),
 }
+REGIONS = ('cn', 'global')
+GLOBAL_DOMAIN = 'creatly.ai'
 
 # Keep the host's OAuth credential identity stable when releasing a new plugin version.
 MCP_SERVER_NAME = 'creatly'
@@ -48,6 +50,21 @@ def normalize_environment(environment):
         raise ValueError('Environment must be dev, test, or main (production is an alias).')
     return environment
 
+def resolve_environment(environment, region='cn'):
+    environment = normalize_environment(environment)
+    if region not in REGIONS:
+        raise ValueError('Region must be cn or global.')
+    if region == 'global':
+        if environment != 'production':
+            raise ValueError('--region global is supported only for main (production).')
+        branch, _, _, version = ENVIRONMENTS[environment]
+        return branch, GLOBAL_DOMAIN, '海外生产', version
+    return ENVIRONMENTS[environment]
+
+def package_key(environment, region='cn'):
+    branch, _, _, _ = resolve_environment(environment, region)
+    return f'{branch}-global' if region == 'global' else branch
+
 def normalize_openai_app_id(value):
     if not isinstance(value, str):
         raise ValueError('Use the actual registered OpenAI app ID, not an OAuth client ID or URL.')
@@ -57,13 +74,16 @@ def normalize_openai_app_id(value):
         raise ValueError('Use the actual registered OpenAI app ID, not an OAuth client ID or URL.')
     return value
 
-def configure(root, environment, openai_app_id=None):
+def configure(root, environment, openai_app_id=None, region='cn'):
     environment = normalize_environment(environment)
-    branch, domain, label, version = ENVIRONMENTS[environment]
+    branch, domain, label, version = resolve_environment(environment, region)
+    marketplace_name = 'creatly-global' if region == 'global' else 'creatly'
+    region_argument = ' --region global' if region == 'global' else ''
+    mapping_key = 'production-global' if region == 'global' else environment
     plugin = root / 'plugins/creatly-canvas'
     site = f'https://{domain}'
     endpoint = f'{site}/api/agent/mcp/v2'
-    server = 'creatly' if environment == 'production' else f'creatly-{environment}'
+    server = marketplace_name if environment == 'production' else f'creatly-{environment}'
     servers = {MCP_SERVER_NAME: {'type': 'http', 'url': endpoint}}
     def write_json(path, data):
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
@@ -71,11 +91,11 @@ def configure(root, environment, openai_app_id=None):
     mappings = json.loads(mapping_path.read_text()) if mapping_path.exists() else {}
     previous_mappings = mappings.copy()
     if openai_app_id is not None:
-        mappings[environment] = normalize_openai_app_id(openai_app_id)
-    registered_app_id = mappings.get(environment)
+        mappings[mapping_key] = normalize_openai_app_id(openai_app_id)
+    registered_app_id = mappings.get(mapping_key)
     if registered_app_id is not None:
         registered_app_id = normalize_openai_app_id(registered_app_id)
-        mappings[environment] = registered_app_id
+        mappings[mapping_key] = registered_app_id
     if openai_app_id is not None or mappings != previous_mappings:
         mapping_path.parent.mkdir(parents=True, exist_ok=True)
         write_json(mapping_path, mappings)
@@ -100,17 +120,21 @@ def configure(root, environment, openai_app_id=None):
             else:
                 data.pop('apps', None)
         write_json(path, data)
-    for host in ['claude', 'codebuddy']:
-        path = root / f'.{host}-plugin/marketplace.json'
+    for relative in ['.agents/plugins/marketplace.json', '.claude-plugin/marketplace.json',
+                     '.codebuddy-plugin/marketplace.json']:
+        path = root / relative
+        if not path.exists():
+            continue
         data = json.loads(path.read_text())
-        assert data['name'] == 'creatly'
-        for item in data['plugins']:
+        assert data['name'] in ('creatly', 'creatly-global')
+        data['name'] = marketplace_name
+        for item in data['plugins'] if not relative.startswith('.agents/') else []:
             if item['name'] == 'creatly-canvas':
                 item.update(version=version, homepage=site)
         write_json(path, data)
     for path in plugin.glob('skills/*/references/mcp-execution.md'):
         text = path.read_text()
-        for known_domain in {domain for _, domain, _, _ in ENVIRONMENTS.values()} | {'yuanji.studio'}:
+        for known_domain in {domain for _, domain, _, _ in ENVIRONMENTS.values()} | {'yuanji.studio', GLOBAL_DOMAIN}:
             text = text.replace(f'https://{known_domain}/api/agent/mcp/v2', endpoint)
         path.write_text(text)
     for path in [root / 'README.md', plugin / 'README.md']:
@@ -135,22 +159,33 @@ def configure(root, environment, openai_app_id=None):
 | --- | --- | --- |
 | 开发 | https://dev.yuanji.studio | dev |
 | 测试 | https://test.yuanji.studio | test |
-| 生产 | https://creatly.cn | main |
+| 国内生产 | https://creatly.cn | main（默认，或 --region cn） |
+| 海外生产 | https://creatly.ai | main --region global |
 
-安装的分支决定连接的环境，打开另一个网站不会自动切换插件。切换环境前，在宿主中移除旧的 `creatly` marketplace 来源，再添加目标分支并重新加载插件；在目标环境完成授权，确认账号与空间。三个环境不共用授权和画布数据。
+分支选择开发、测试或生产环境；生产环境再用 `--region cn|global` 选择国内或海外站。默认国内，打开另一个网站不会自动切换插件。在目标站点分别授权并确认账号与空间，不跨站复用授权或应用 ID。
+
+海外站与国内站共用 main 分支，使用参数导出，不创建额外 Git 分支：
+
+```bash
+python3 scripts/configure-environment.py main --region global --client codex
+codex plugin marketplace add ./dist/main-global/codex
+codex plugin add creatly-canvas@creatly-global
+```
+
+将 `--client` 改为 `claude` 或 `workbuddy` 可导出对应客户端。海外包使用 `creatly-global` marketplace 与独立输出目录，保留国内 `creatly` 的现有安装身份。海外包不能直接用不带参数的 Git marketplace 安装代替。各站点数据以实际连接回执为准。
 
 ## Codex 安装
 
 ```bash
-codex plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git --ref {branch}
-codex plugin add creatly-canvas@creatly
+{f'codex plugin marketplace add ./dist/{package_key(environment, region)}/codex' if region == 'global' else f'codex plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git --ref {branch}'}
+codex plugin add creatly-canvas@{marketplace_name}
 ```
 
 ## Claude Code 安装
 
 ```text
-/plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git#{branch}
-/plugin install creatly-canvas@creatly
+{f'/plugin marketplace add ./dist/{package_key(environment, region)}/claude' if region == 'global' else f'/plugin marketplace add https://github.com/CreatlyLabs/creatly-canvas-plugin.git#{branch}'}
+/plugin install creatly-canvas@{marketplace_name}
 ```
 
 首次连接时，按宿主提示完成 Creatly 的 OAuth 授权，在 **{domain}** 登录并选择空间。在会话里要求开始授权时，只发起一次宿主连接；宿主已打开网页后不再用浏览器或其他工具重复打开回执中的链接。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期]({connection_guide})。
@@ -181,7 +216,7 @@ codex plugin add creatly-canvas@creatly
 申请开放平台连接器市场时，使用独立的 MCP + Skill 包，不能上传下方本地 marketplace 包：
 
 ```bash
-python3 scripts/package-workbuddy-connector.py {branch}
+python3 scripts/package-workbuddy-connector.py {branch}{region_argument}
 ```
 
 生成 connector-meta.json、mcp.json、icon.png、公开技能和 ZIP。参见 [开放平台连接器打包与联调](https://github.com/CreatlyLabs/creatly-canvas-plugin/blob/{branch}/connectors/workbuddy/README.md)。目录检查通过不代表网站 OAuth 或平台审核已通过。
@@ -231,15 +266,15 @@ claude mcp add --transport http {server} {endpoint}
 拉取对应分支后，默认同步全部客户端配置：
 
 ```bash
-python3 scripts/configure-environment.py {branch}
+python3 scripts/configure-environment.py {branch}{region_argument}
 ```
 
-需要单独安装包时，用 `--client` 导出。输出默认位于 `dist/{branch}/<client>/`，可以用 `--output` 指定新目录；导出不会修改源仓库或已有授权。
+需要单独安装包时，用 `--client` 导出。输出默认位于 `dist/{package_key(environment, region)}/<client>/`，可以用 `--output` 指定新目录；导出不会修改源仓库或已有授权。
 
 ```bash
-python3 scripts/configure-environment.py {branch} --client codex
-python3 scripts/configure-environment.py {branch} --client claude
-python3 scripts/configure-environment.py {branch} --client workbuddy
+python3 scripts/configure-environment.py {branch}{region_argument} --client codex
+python3 scripts/configure-environment.py {branch}{region_argument} --client claude
+python3 scripts/configure-environment.py {branch}{region_argument} --client workbuddy
 ```
 
 | 客户端参数 | 插件配置 | MCP 配置 |
@@ -257,9 +292,10 @@ python3 scripts/configure-environment.py {branch} --client workbuddy
 '''
         path.write_text(header + tail)
 
-def export_package(root, environment, client, output, openai_app_id=None):
+def export_package(root, environment, client, output, openai_app_id=None, region='cn'):
     """Render from shared sources in isolation; never overwrite an existing package."""
     environment = normalize_environment(environment)
+    resolve_environment(environment, region)
     if client not in (*CLIENTS, 'all'):
         raise ValueError('Client must be all, codex, claude, or workbuddy.')
     if openai_app_id is not None and client not in ('all', 'codex'):
@@ -292,7 +328,7 @@ def export_package(root, environment, client, output, openai_app_id=None):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(source, target)
         shutil.copy(root / 'README.md', staged / 'README.md')
-        configure(staged, environment, openai_app_id)
+        configure(staged, environment, openai_app_id, region)
         selected = CLIENTS if client == 'all' else {client: CLIENTS[client]}
         for host, (manifest, marketplace, connection) in CLIENTS.items():
             if host not in selected:
@@ -303,7 +339,7 @@ def export_package(root, environment, client, output, openai_app_id=None):
         if 'codex' not in selected:
             (plugin / '.app.json').unlink(missing_ok=True)
         shutil.rmtree(staged / 'config', ignore_errors=True)
-        branch, domain, _, version = ENVIRONMENTS[environment]
+        branch, domain, _, version = resolve_environment(environment, region)
         manifests = '\n'.join(f'- `plugins/creatly-canvas/{adapter[0]}/plugin.json`'
                               for adapter in selected.values())
         (staged / 'INSTALL.md').write_text(f'''# Creatly {client} 安装包
@@ -332,6 +368,8 @@ if __name__ == '__main__':
     parser.add_argument('environment', choices=(*ENVIRONMENTS, 'main'))
     parser.add_argument('--client', choices=('all', *CLIENTS), default='all',
                         help='Export only this client; default all configures the shared source in place.')
+    parser.add_argument('--region', choices=REGIONS, default='cn',
+                        help='Production site: cn (default) or global (creatly.ai).')
     parser.add_argument('--output', type=Path, help='Export to a new or empty marketplace directory.')
     parser.add_argument('--openai-app-id', help='Actual registered OpenAI app ID for this environment.')
     args = parser.parse_args()
@@ -339,10 +377,10 @@ if __name__ == '__main__':
     try:
         if args.client != 'all' or args.output is not None:
             environment = normalize_environment(args.environment)
-            branch = ENVIRONMENTS[environment][0]
-            output = args.output or source_root / 'dist' / branch / args.client
-            print(export_package(source_root, environment, args.client, output, args.openai_app_id))
+            key = package_key(environment, args.region)
+            output = args.output or source_root / 'dist' / key / args.client
+            print(export_package(source_root, environment, args.client, output, args.openai_app_id, args.region))
         else:
-            configure(source_root, args.environment, args.openai_app_id)
+            configure(source_root, args.environment, args.openai_app_id, args.region)
     except ValueError as error:
         parser.error(str(error))

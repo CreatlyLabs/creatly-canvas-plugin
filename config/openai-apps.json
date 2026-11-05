@@ -1,5 +1,6 @@
 {
   "dev": null,
   "test": null,
-  "production": null
+  "production": null,
+  "production-global": null
 }
