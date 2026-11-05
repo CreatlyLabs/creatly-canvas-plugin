@@ -1,6 +1,12 @@
 # 账号连接与自动续期
 
-Creatly 通过远程 Streamable HTTP MCP 和标准 OAuth 连接账号。宿主（Codex、Claude Code 等）完成首次浏览器登录、PKCE、凭据保存和自动续期，插件只声明服务器与创作技能。这种模式无需本地画布服务或保持网页打开。
+Creatly 通过远程 Streamable HTTP MCP 和标准 OAuth 连接账号。宿主完成首次浏览器登录、PKCE、凭据保存和自动续期，插件只声明服务器与创作技能。这种模式无需本地画布服务或保持网页打开。
+
+## 国内与海外站
+
+国内正式站为 `https://creatly.cn`，海外正式站为 `https://creatly.ai`，都使用 main 分支。海外安装用 `python3 scripts/configure-environment.py main --region global --client codex`（按需替换客户端），输出到 `dist/main-global/`；默认不传 region 仍连接国内。海外本地 marketplace 名为 `creatly-global`，国内继续使用 `creatly`，避免互相覆盖来源。开发、测试地址保持不变；未配置海外开发、测试地址时不接受这两种环境的 global 参数。
+
+OAuth 发行者、资源地址、登录站点必须对应同一站点。国内登录态、客户端注册、访问令牌与刷新令牌不能转交海外接口。各站分别连接；切换浏览器网站或语言不会切换已安装插件。OpenAI 应用 ID 使用独立的 `production` / `production-global` 映射，未注册海外应用时不沿用国内应用 ID。
 
 ## 从旧版迁移
 

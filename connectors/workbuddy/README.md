@@ -5,6 +5,7 @@
 
 ```bash
 python3 scripts/package-workbuddy-connector.py main
+python3 scripts/package-workbuddy-connector.py main --region global
 python3 scripts/package-workbuddy-connector.py test
 python3 scripts/package-workbuddy-connector.py dev
 ```
@@ -16,10 +17,11 @@ ZIP 根目录直接包含 connector-meta.json、mcp.json、icon.png 和 skills/�
 | 环境 | source | 连接地址 |
 | --- | --- | --- |
 | main | creatly-canvas | https://creatly.cn/api/agent/mcp/v2 |
+| main --region global | creatly-canvas-global | https://creatly.ai/api/agent/mcp/v2 |
 | test | creatly-canvas-test | https://test.yuanji.studio/api/agent/mcp/v2 |
 | dev | creatly-canvas-dev | https://dev.yuanji.studio/api/agent/mcp/v2 |
 
-`source` 是拟申请标识，能否使用需以平台审核为准。首次发布后保持标识稳定。正式市场使用 main 包，测试环境用于联调。
+`source` 是拟申请标识，能否使用需以平台审核为准。首次发布后保持标识稳定。国内正式市场使用 main 包，海外包使用同一 main 分支加 `--region global`，输出到 `dist/main-global/workbuddy-connector/`，测试环境用于联调。两个站点的 MCP 地址、OAuth 资源地址和 source 分开，不能共用授权。海外官方市场连接器仍需单独创建、上传和审核，打包不代表已发布。
 使用中英文名称、描述及示例，声明最低 WorkBuddy 4.24.0；远程传输使用平台要求的 streamableHttp，单 Server、30 秒超时。
 官方市场包声明 `auth_mode: "server-side"` 与 `server_auth.auth_type: "mcp_oauth"`。WorkBuddy 云端通过 MCP 资源地址发现元数据、动态注册客户端、完成 OAuth 并托管令牌；包中不填写注册后才产生的 client_id、client_secret、redirect_uri，也不要求用户填写长期 Token。
 MCP Server 键名与当前环境的 source 一致。图标使用用户提供的 Creatly PNG 原图，尺寸为 128×128，不缩放或重绘。包内只保留可执行的使用说明，开发测试命令不进入提交包。

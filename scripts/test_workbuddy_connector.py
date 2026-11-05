@@ -107,6 +107,32 @@ class WorkBuddyConnectorTest(unittest.TestCase):
             with zipfile.ZipFile(archive) as z:
                 self.assertTrue(all(marker not in z.read(name) for name in z.namelist()))
 
+    def test_global_connector_uses_overseas_resource_for_transport_and_oauth(self):
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            source = self.source(parent / 'source')
+            output, archive = module.package_connector(source, 'main', parent / 'global', region='global')
+            metadata = module.validate_connector(output)
+            self.assertEqual(metadata['source'], 'creatly-canvas-global')
+            self.assertTrue(archive.name.startswith('creatly-canvas-global-'))
+            self.assertEqual(metadata['server_auth']['data']['mcp_oauth']['server_url'],
+                             'https://creatly.ai/api/agent/mcp/v2')
+            mcp = json.loads((output / 'mcp.json').read_text())
+            self.assertEqual(mcp['mcpServers']['creatly-canvas-global']['url'],
+                             'https://creatly.ai/api/agent/mcp/v2')
+            protocol = (output / 'skills/creatly-canvas/references/mcp-execution.md').read_text()
+            self.assertIn('https://creatly.ai/api/agent/mcp/v2', protocol)
+            self.assertNotIn('https://creatly.cn/api/agent/mcp/v2', protocol)
+            with zipfile.ZipFile(archive) as z:
+                self.assertIsNone(z.testzip())
+                self.assertEqual({name: z.read(name) for name in z.namelist()}, module.snapshot(output))
+            packed = archive.read_bytes()
+            module.package_connector(source, 'main', output, region='global')
+            self.assertEqual(packed, archive.read_bytes())
+            with self.assertRaises(ValueError):
+                module.package_connector(source, 'test', parent / 'invalid', region='global')
+            self.assertFalse((parent / 'invalid').exists())
+
     def test_existing_directory_and_archive_are_not_overwritten(self):
         with tempfile.TemporaryDirectory() as temp:
             parent = Path(temp)
