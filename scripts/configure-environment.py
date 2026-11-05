@@ -27,7 +27,7 @@ CLIENTS = {
 # Do not recursively copy skill/reference folders: an internal file added beside
 # these sources must never silently become part of every client download.
 PUBLIC_PLUGIN_FILES = (
-    'README.md', 'docs/oauth-connection.md',
+    'README.md', 'docs/oauth-connection.md', 'docs/chat-connectors.md',
     '.codex-plugin/plugin.json', '.claude-plugin/plugin.json', '.codebuddy-plugin/plugin.json',
     '.mcp.json', '.mcp.claude.json',
     'scripts/README.md', 'scripts/upload_file.py', 'scripts/test_upload_file.py',
@@ -119,9 +119,11 @@ def configure(root, environment, openai_app_id=None):
         tail = old[old.index('## 图片、视频、音频上传'):] if '## 图片、视频、音频上传' in old else old[old.index('## 生成确认'):]
         protocol = 'skills/creatly-canvas/references/mcp-execution.md'
         connection_guide = 'docs/oauth-connection.md'
+        chat_guide = 'docs/chat-connectors.md'
         four_view_guide = 'skills/creatly-canvas/references/character-four-view.md'
         if path == root / 'README.md': protocol = 'plugins/creatly-canvas/' + protocol
         if path == root / 'README.md': connection_guide = 'plugins/creatly-canvas/' + connection_guide
+        if path == root / 'README.md': chat_guide = 'plugins/creatly-canvas/' + chat_guide
         if path == root / 'README.md': four_view_guide = 'plugins/creatly-canvas/' + four_view_guide
         header = f'''# Creatly Canvas · {label}环境
 
@@ -154,6 +156,10 @@ codex plugin add creatly-canvas@creatly
 首次连接时，按宿主提示完成 Creatly 的 OAuth 授权，在 **{domain}** 登录并选择空间。在会话里要求开始授权时，只发起一次宿主连接；宿主已打开网页后不再用浏览器或其他工具重复打开回执中的链接。之后由宿主保存凭据和自动刷新访问令牌；开启新任务、重启宿主或更新同一环境的插件时先复用已有连接，不每天执行 `/mcp` 验证。完整失效条件与排障见 [账号连接与续期]({connection_guide})。
 
 本次升级更改了插件和 MCP 的内部名称，宿主可能将其识别为新连接；旧版用户如遇授权提示，需按宿主引导重新连接一次。旧正式域名迁移至 `creatly.cn` 时也可能需要重新授权。
+
+## ChatGPT 与 Claude 聊天
+
+网页聊天可按平台的自定义 MCP 连接器流程连接 Creatly。聊天连接与本机插件授权独立；本机 Skill 与上传脚本不会仅凭 MCP 连接自动启用。[聊天接入和验收说明]({chat_guide})
 
 ## 一次授权与自动续期
 
